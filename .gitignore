@@ -1,0 +1,21 @@
+# Ignore the data path (30+ GB)
+data/*
+
+# Ignore inference pictures (for now)
+yolo/inference_*.jpg
+
+# YOLO models
+yolo*.pt
+
+# Ignore python cache files
+__pycache__/*
+datasets/__pycache__/*
+
+# Ignore output directories
+runs/*
+
+# Ignore WandB directory
+wandb/*
+
+# Ignore .vscode
+.vscode/*
