@@ -163,7 +163,7 @@ tzdata==2025.1
 ua-parser==1.0.1
 ua-parser-builtins==0.18.0.post1
 ujson==5.10.0
-ultralytics==8.3.94
+ultralytics==8.3.97
 ultralytics-thop==2.0.14
 uritemplate==4.1.1
 urllib3==1.26.20
