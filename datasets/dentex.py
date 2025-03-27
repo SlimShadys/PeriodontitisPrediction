@@ -51,12 +51,18 @@ class Dentex():
 
             # Process quadrant data
             quadrant_data = self.convert_to_yolo_format(self.quadrant_json, quadrant_classes)
-            self.process_yolo_data(quadrant_data, os.path.join(self.train_dir, "quadrant", "xrays"))
-
-            # Process quadrant enumeration data with offset
+            
+            # Process quadrant enumeration data
             quadrant_enum_data = self.convert_to_yolo_format(self.quadrant_enum_json, quadrant_classes)
-            len_quadrants = len(os.listdir(os.path.join(self.train_dir, "quadrant", "xrays")))
-            self.process_yolo_data(quadrant_enum_data, os.path.join(self.train_dir, "quadrant_enumeration", "xrays"), len_offset=len_quadrants)
+            
+            final_data = {
+                "quadrant": [quadrant_data, os.path.join(self.train_dir, "quadrant", "xrays")],
+                "quadrant_enumeration": [quadrant_enum_data, os.path.join(self.train_dir, "quadrant_enumeration", "xrays")],
+                #"len_quadrants": len_quadrants
+            }
+            
+            # Process the final data
+            self.process_yolo_data(final_data)
 
             # Here there could be a re-mapping of the validation IDs to start from a 0-based index
 
@@ -79,44 +85,90 @@ class Dentex():
         return merged_classes, quadrant_classes, tooth_classes_offset
 
     # Start the process of converting the Dentex dataset to the YOLO format
-    def process_yolo_data(self, data, src_dir, len_offset=0):
-        random.seed(42)
+    def process_yolo_data(self, data):
+        # Extract data       
+        # These are the quadrant and quadrant enumeration data
+        # They are extracted as a dictionary with the following structure:
+        # {
+        #     "quadrant": [quadrant_data, src_quadrant],
+        #     "quadrant_enumeration": [quadrant_enum_data, src_quadrant_enum]
+        # }
+        quadrant, src_quadrant = data["quadrant"]
+        quadrant_enum, src_quadrant_enum = data["quadrant_enumeration"]
+        
+        # Seed and validation sizes
+        random.seed(2047315)
         val_size = 0.2
-        # train_size = 1 - val_size
 
-        image_keys = list(data.keys())
-        random.shuffle(image_keys)
+        # Create a merged dataset empty dictionary
+        merged_data = {}
 
-        num_val_images = int(val_size * len(image_keys))
-        train_images = image_keys[num_val_images:]
-        val_images = image_keys[:num_val_images]
+        # Process quadrant data (classes 0-3)
+        quadrant_keys = list(quadrant.keys())
+        random.shuffle(quadrant_keys)
+        num_val_quadrant = int(val_size * len(quadrant_keys))
+        #quadrant_train_keys = quadrant_keys[num_val_quadrant:]
+        quadrant_val_keys = quadrant_keys[:num_val_quadrant]
 
-        desc = "Processing YOLO data"
-        desc += " (validation)" if len_offset > 0 else " (training)"
+        # Process quadrant_enum data (classes 4-11)
+        quadrant_enum_keys = list(quadrant_enum.keys())
+        random.shuffle(quadrant_enum_keys)
+        num_val_quadrant_enum = int(val_size * len(quadrant_enum_keys))
+        #quadrant_enum_train_keys = quadrant_enum_keys[num_val_quadrant_enum:]
+        quadrant_enum_val_keys = quadrant_enum_keys[:num_val_quadrant_enum]
 
-        for orig_file_name, labels in tqdm(data.items(), desc=desc, unit="images"):
-            if orig_file_name in val_images:
-                output_subdir = 'val'
-                file_name = orig_file_name.replace("train_", "val_")
-            elif orig_file_name in train_images:
-                output_subdir = 'train'
-                file_name = orig_file_name
-            else:
-                raise ValueError(f"Image {orig_file_name} not found in training or validation set.")
+        # Process quadrant data (classes 0-3)
+        for orig_file_name in quadrant_keys:
+            is_val = orig_file_name in quadrant_val_keys
+            merged_data[orig_file_name] = {
+                'labels': quadrant[orig_file_name],
+                'src_dir': src_quadrant,
+                'original_filename': orig_file_name,
+                'is_val': is_val
+            }
+            
+        # Process quadrant_enum data (already mapped to classes 4-11)
+        len_quadrant = len(quadrant)
+        for orig_file_name in quadrant_enum_keys:
+            # Rename the file by adding an offset to prevent overlap
+            base_name, ext = orig_file_name.split(".")
+            prefix, idx = base_name.split("_")
+            new_file_name = f"{prefix}_{int(idx) + len_quadrant}.{ext}"
 
-            # Adjust file name with offset if needed
-            if len_offset > 0:
-                base_name, ext = file_name.split(".")
-                prefix, idx = base_name.split("_")
-                file_name = f"{prefix}_{int(idx) + len_offset}.{ext}"
+            # Modify labels to add class offset
+            offset_labels = [
+                f"{int(label.split()[0]) + 4} {' '.join(label.split()[1:])}" 
+                for label in quadrant_enum[orig_file_name]
+            ]
 
-            # Write YOLO labels to files
-            txt_path = os.path.join(self.yolo_output_dir, output_subdir, file_name.replace(".png", ".txt"))
+            is_val = orig_file_name in quadrant_enum_val_keys
+            merged_data[new_file_name] = {
+                'labels': offset_labels,
+                'src_dir': src_quadrant_enum,
+                'original_filename': orig_file_name,
+                'is_val': is_val
+            }
+
+        # Process and save images
+        for new_file_name in tqdm(merged_data.keys(), desc="Processing merged YOLO data", unit="images"):
+            data_info = merged_data[new_file_name]
+            
+            # Determine output subdirectory
+            output_subdir = 'val' if data_info['is_val'] else 'train'
+            display_file_name = new_file_name.replace("train_", "val_") if data_info['is_val'] else new_file_name
+
+            # Prepare label file
+            txt_path = os.path.join(self.yolo_output_dir, output_subdir, display_file_name.replace(".png", ".txt"))
             with open(txt_path, 'w') as f:
-                f.write("\n".join(labels))
+                f.write("\n".join(data_info['labels']))
 
             # Copy the image to the YOLO output directory
-            shutil.copy(os.path.join(src_dir, orig_file_name), os.path.join(self.yolo_output_dir, output_subdir, file_name))
+            # In case the original filename is needed, it can be accessed via data_info['original_filename']
+            # In this way we can keep track of the original filename when we deal with quadrant_enum images (since they are renamed)
+            shutil.copy(
+                os.path.join(data_info['src_dir'], data_info['original_filename']), 
+                os.path.join(self.yolo_output_dir, output_subdir, display_file_name)
+            )
 
     def convert_to_yolo_format(self, json_data, quadrant_classes):
         """
@@ -145,10 +197,8 @@ class Dentex():
             height = h / img_height
 
             # Determine class ID (quadrant or tooth)
-            # If quadrant, leave the class ID as is
-            # If tooth, add an offset to the class ID to avoid overriding quadrant IDs
             if "category_id_1" in ann and "category_id_2" in ann:
-                class_id = ann["category_id_2"] + len(quadrant_classes) # Tooth class ID offset
+                class_id = ann["category_id_2"] # Tooth class ID offset
             else:
                 class_id = ann["category_id"] # Quadrant class ID
 

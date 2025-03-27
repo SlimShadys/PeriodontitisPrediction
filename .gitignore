@@ -2,7 +2,7 @@
 data/*
 
 # Ignore inference pictures (for now)
-yolo/inference_*.jpg
+yolo_det/inference_*.jpg
 
 # YOLO models
 yolo*.pt
