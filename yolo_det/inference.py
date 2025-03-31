@@ -30,7 +30,7 @@ class_mapping = {
 font = ImageFont.truetype("arial.ttf", 40)
 
 model = YOLO(os.path.join(os.getcwd(), "runs", "detect", "v2.1", "drawn-glitter-15", "weights", "epoch_22.pt"))
-img_path = os.path.join(os.getcwd(), "yolo", "inference_1.jpg")
+img_path = os.path.join(os.getcwd(), "data", "InferenceData", "inference_1.jpg")
 
 results = model.predict(img_path, imgsz=1280, conf=0.25, device="cuda",)
 

@@ -5,59 +5,11 @@ from typing import Dict, Optional
 import torch
 import wandb
 import wandb.wandb_run
-from ultralytics import YOLO
+from ultralytics import YOLO, YOLOE
 
 # Local imports
 sys.path.append("./")
-import datasets.dentex as dentex
-
-def run_checks(yolo_version, model_version, dataset_configs):
-    # Check if the YOLO version is supported
-    if yolo_version not in [8, 9, 10, 11, 12]:
-        raise ValueError(f"Unsupported YOLO version: {yolo_version}")
-
-    # Check if the model version is supported
-    if model_version not in ["n", "s", "m", "l", "x"]:
-        raise ValueError(f"Unsupported model version: {model_version}")
-
-    # Extract dataset configs
-    dataset_name = dataset_configs['name']
-    dataset_path = dataset_configs['path']
-
-    # Check if the dataset is supported
-    if dataset_name not in ["DENTEX"]:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
-    
-    # Check if the dataset path exists
-    if not os.path.exists(dataset_path):
-        raise ValueError(f"Dataset path does not exist: {dataset_path}")
-
-def get_dataset(dataset_configs):
-    dataset_name = dataset_configs['name']
-
-    if dataset_name == "DENTEX":
-        # =================================================================================================
-        # Dentex Dataset
-        # - This class will convert the Dentex dataset to the YOLO format
-        # - It will also create the data.yaml file needed for training
-        # =================================================================================================
-        return dentex.Dentex(dataset_configs=dataset_configs)
-    else:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-def get_model_path(resume, save_dir, yolo_version, model_version):
-    #   - If resume is True , we will load the last.pt model from the save_dir
-    #   - If resume is False, we will use the default YOLO model path
-    if resume:
-        model_path = os.path.join(save_dir, "weights", "last.pt")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Checkpoint file not found: {model_path}")
-    else:
-        model_path = 'yolo'
-        if yolo_version in [8, 9, 10]:
-            model_path += 'v'
-        model_path += f'{yolo_version}{model_version}-seg.pt'
-    return model_path
+from misc.utils import run_checks, get_dataset, get_model_path
 
 def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wandb_run.Run]) -> None:
     """
@@ -108,7 +60,12 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     model_path = get_model_path(resume, save_dir, yolo_version, model_version)
         
     # Load the YOLO model
-    model = YOLO(model_path)
+    if model_path.startswith("yoloe"):
+        raise NotImplementedError("YOLOE for Object Detection training is not implemented yet.")
+        # Load YOLOE model
+        model = YOLOE(model_path)
+    else:
+        model = YOLO(model_path)
 
     # Update the WandB configs before training
     if wandb_run is not None:
@@ -128,7 +85,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         hsv_h=augmentations["hsv_h"], hsv_s=augmentations["hsv_s"], hsv_v=augmentations["hsv_v"],
         degrees=augmentations["degrees"], fliplr=augmentations["fliplr"], close_mosaic=close_mosaic,
         # WandB configs and resume option
-        project=os.path.join("runs", "detect", wandb_run.group) if wandb_run is not None else save_dir.split(os.sep)[:-1],
+        project=os.path.join("runs", "detect", wandb_run.group) if wandb_run is not None else os.sep.join(save_dir.split(os.sep)[:-1]),
         name=wandb_run.name if wandb_run is not None else save_dir.split(os.sep)[-1],
         resume=resume,
     )
@@ -147,21 +104,17 @@ def main():
     else:
         version = "v2.1"                # Set the version of the run (saved locally ONLY)
 
-    # Retrieve the last run ID for the project
-    # api = wandb.Api()
-    # runs = api.runs(f"{entity}/{project}")
-    # last_run_id = runs[0].id  # Get the most recent run ID
-
     dataset_configs = {
         'name': 'DENTEX',
-        #'path': os.path.join(os.getcwd(), "data", "DENTEX", "DENTEX"),
-        'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DENTEX", "DENTEX")),
-        'create_yolo_version': True
+        'task_type': 'detection',
+        'path': os.path.join(os.getcwd(), "data", "DENTEX", "DENTEX"), # For local testing
+        # 'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DENTEX", "DENTEX")),  # For Docker testing
+        'create_yolo_version': False
     }
 
     model_configs = {
-        'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12]
-        'model_version': 'm',   # Choose between [n, s, m, l, x]
+        'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
+        'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         # Network-related
         'imgsz': 1280,
@@ -185,8 +138,9 @@ def main():
         'resume': False,       # Resume training from the last checkpoint (last.pt)
     }
 
-    # Run checks
-    run_checks(model_configs["yolo_version"], model_configs["model_version"], dataset_configs)
+    # Run checks (Task type is empty because "" corresponds to detection)
+    run_checks(model_version=model_configs["yolo_version"], size_version=model_configs["model_version"],
+               task_type="", dataset_configs=dataset_configs)
 
     # Get the dataset
     dataset_configs['data'] = get_dataset(dataset_configs)

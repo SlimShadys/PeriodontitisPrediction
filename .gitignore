@@ -1,9 +1,6 @@
 # Ignore the data path (30+ GB)
 data/*
 
-# Ignore inference pictures (for now)
-yolo_det/inference_*.jpg
-
 # YOLO models
 yolo*.pt
 

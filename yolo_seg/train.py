@@ -3,38 +3,14 @@ import sys
 from typing import Dict, Optional
 
 import torch
-from ultralytics import YOLO
 import wandb
 import wandb.wandb_run
+from ultralytics import YOLO, YOLOE
+from ultralytics.models.yolo.yoloe import YOLOEVPTrainer
 
 # Local imports
 sys.path.append("./")
-import datasets.teeth_seg as teeth_seg
-
-def get_dataset(dataset_configs):
-    dataset_name = dataset_configs['name']
-
-    if dataset_name == "TeethSeg":
-        # =================================================================================================
-        # TeethSeg Dataset
-        # =================================================================================================
-        return teeth_seg.TeethSeg(dataset_configs=dataset_configs)
-    else:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
-
-def get_model_path(resume, save_dir, yolo_version, model_version):
-    #   - If resume is True , we will load the last.pt model from the save_dir
-    #   - If resume is False, we will use the default YOLO model path
-    if resume:
-        model_path = os.path.join(save_dir, "weights", "last.pt")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Checkpoint file not found: {model_path}")
-    else:
-        model_path = 'yolo'
-        if yolo_version in [8, 9, 10]:
-            model_path += 'v'
-        model_path += f'{yolo_version}{model_version}-seg.pt'
-    return model_path
+from misc.utils import run_checks, get_dataset, get_model_path
 
 def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wandb_run.Run]) -> None:
     """
@@ -85,7 +61,41 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     model_path = get_model_path(resume, save_dir, yolo_version, model_version)
         
     # Load the YOLO model
-    model = YOLO(model_path)
+    if model_path.startswith("yoloe"):
+        raise NotImplementedError("YOLOE for Segmentation training is not implemented yet.")
+        # Load YOLOE model
+        model = YOLOE(model_path)
+        # freeze every layer except of the savpe module.
+        head_index = len(model.model.model) - 1
+        freeze = list(range(0, head_index))
+        for name, child in model.model.model[-1].named_children():
+            if "savpe" not in name:
+                freeze.append(f"{head_index}.{name}")
+        trainer = YOLOEVPTrainer
+        # In this case, Yolo-E expects a dictionary and not a .yaml file
+        # The reason behind this is that we need the grounding_data which is not present in the TeethSeg dataset (for now)
+        data = None
+        # data = dict(
+        #     train=dict(
+        #         yolo_data=[os.path.join(data_path, "YOLO_dataset", "data.yaml")],
+        #         grounding_data=[
+        #             dict(
+        #                 img_path="../datasets/flickr/full_images/",
+        #                 json_file="../datasets/flickr/annotations/final_flickr_separateGT_train_segm.json",
+        #             ),
+        #             # dict(
+        #             #     img_path="../datasets/mixed_grounding/gqa/images",
+        #             #     json_file="../datasets/mixed_grounding/annotations/final_mixed_train_no_coco_segm.json",
+        #             # ),
+        #         ],
+        #     ),
+        #     val=dict(os.path.join(data_path, "YOLO_dataset", "data.yaml")),
+        # )
+    else:
+        model = YOLO(model_path)
+        trainer = model.trainer
+        freeze = None
+        data = os.path.join(data_path, "YOLO_dataset", "data.yaml")
 
     # Update the WandB configs before training
     if wandb_run is not None:
@@ -97,7 +107,9 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         })
 
     # Train the model
-    results = model.train(data=os.path.join(data_path, "YOLO_dataset", "data.yaml"),
+    results = model.train(data=data,
+        # Trainer-related
+        trainer=trainer, freeze=freeze,
         # Network-related
         device=device, imgsz=imgsz, epochs=epochs, batch=batch, optimizer=optimizer, lr0=lr0, lrf=lrf,
         cos_lr=cos_lr, momentum=momentum, weight_decay=weight_decay, patience=patience,
@@ -105,7 +117,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         hsv_h=augmentations["hsv_h"], hsv_s=augmentations["hsv_s"], hsv_v=augmentations["hsv_v"],
         degrees=augmentations["degrees"], fliplr=augmentations["fliplr"], close_mosaic=close_mosaic,
         # WandB configs and resume option
-        project=os.path.join("runs", "segment", wandb_run.group) if wandb_run is not None else save_dir.split(os.sep)[:-1],
+        project=os.path.join("runs", "segment", wandb_run.group) if wandb_run is not None else os.sep.join(save_dir.split(os.sep)[:-1]),
         name=wandb_run.name if wandb_run is not None else save_dir.split(os.sep)[-1],
         resume=resume,
     )
@@ -114,7 +126,7 @@ def main():
     # ============== PARAMETERS ============== #
 
     # WandB configs
-    use_wandb = True                    # Set to True if you want to use WandB for logging | # If True, also run ```yolo settings wandb=True``` in the terminal
+    use_wandb = False                    # Set to True if you want to use WandB for logging | # If True, also run ```yolo settings wandb=True``` in the terminal
     if use_wandb:
         wandb.login()
         entity = "SlimShadys"           # Set the wandb entity where your project will be logged (generally your team name).
@@ -124,14 +136,9 @@ def main():
     else:
         version = "v0.1"                # Set the version of the run (saved locally ONLY)
 
-    # Retrieve the last run ID for the project
-    # api = wandb.Api()
-    # runs = api.runs(f"{entity}/{project}")
-    # last_run_id = runs[0].id  # Get the most recent run ID
-
     model_configs = {
-        'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12]
-        'model_version': 'm',   # Choose between [n, s, m, l, x]
+        'yolo_version': "yoloe-v8",      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
+        'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         # Network-related
         'imgsz': 1280,
@@ -157,10 +164,11 @@ def main():
 
     dataset_configs = {
         'name': 'TeethSeg',
-        'path': os.path.join(os.getcwd(), "data", "TeethSeg"),
-        #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")),
+        'task_type': 'segmentation',
+        'path': os.path.join(os.getcwd(), "data", "TeethSeg"), # For local testing
+        #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")), # For Docker testing
         'url': "https://www.kaggle.com/api/v1/datasets/download/humansintheloop/teeth-segmentation-on-dental-x-ray-images",
-        'create_yolo_version': True
+        'create_yolo_version': False
     }
     
     # Get the dataset
@@ -192,7 +200,11 @@ def main():
         model_configs["save_dir"] = os.path.join(os.getcwd(), "runs", "segment", group, wandb_run.name) # Save directory
     else:
         model_configs["save_dir"] = os.path.join(os.getcwd(), "runs", "segment", version) # Save directory
-        
+
+    # Run checks (Task type is empty because "" corresponds to detection)
+    run_checks(model_version=model_configs["yolo_version"], size_version=model_configs["model_version"],
+               task_type="-seg", dataset_configs=dataset_configs)
+
     # Train the model
     train_model(model_configs, dataset_configs, wandb_run)
 
