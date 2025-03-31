@@ -15,5 +15,5 @@ RUN pip install -r /requirements.txt
 # Cache directory creation
 RUN mkdir /.cache && chmod 777 /.cache
 
-# Here we should run the wandb login and enable wandb with: yolo settings wandb=True at '/root/.config/Ultralytics/settings.json'
+# Here we should enable WandB with: yolo settings wandb=True at '/root/.config/Ultralytics/settings.json'
 RUN yolo settings wandb=True
