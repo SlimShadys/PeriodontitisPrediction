@@ -12,6 +12,7 @@ import yaml
 # Define the URL and the target path
 download_path = os.path.expanduser("./archive.zip")
 
+# https://datasetninja.com/teeth-segmentation#download
 class TeethSeg():
     def __init__(self, dataset_configs):
         # Generic variables

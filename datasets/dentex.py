@@ -7,6 +7,7 @@ from collections import defaultdict
 import yaml
 from tqdm import tqdm
 
+# https://huggingface.co/datasets/ibrahimhamamci/DENTEX
 class Dentex():
     def __init__(self, dataset_configs):
         # Generic variables
