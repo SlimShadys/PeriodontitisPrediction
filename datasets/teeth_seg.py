@@ -2,12 +2,18 @@ import json
 import os
 import random
 import shutil
+import sys
 from zipfile import ZipFile
 
+import cv2
 import requests
+import yaml
 from PIL import Image
 from tqdm import tqdm
-import yaml
+
+# Local imports
+sys.path.append("./")
+from misc.augmentations import preprocess_image
 
 # Define the URL and the target path
 download_path = os.path.expanduser("./archive.zip")
@@ -20,6 +26,7 @@ class TeethSeg():
         self.data_path = dataset_configs["path"]
         self.url = dataset_configs["url"]
         self.create_yolo_version = dataset_configs["create_yolo_version"] # If True, the dataset will be converted to the YOLO format
+        self.enhance_images = dataset_configs["enhance"] # If True, the images will be enhanced using the augmentations defined in misc/augmentations.py
 
         # Download the Dataset if it doesn't exist
         if not os.path.exists(self.data_path):
@@ -53,14 +60,12 @@ class TeethSeg():
                 os.makedirs(os.path.join(self.yolo_output_dir, "train"), exist_ok=True)
             if not os.path.exists(os.path.join(self.yolo_output_dir, "val")):
                 os.makedirs(os.path.join(self.yolo_output_dir, "val"), exist_ok=True)
-            if not os.path.exists(os.path.join(self.yolo_output_dir, "test")):
-                os.makedirs(os.path.join(self.yolo_output_dir, "test"), exist_ok=True)
 
             # We need to simply convert the classes into a YOLO format and then proceed with the splits
             yolo_data = self.convert_to_yolo_format(self.ann_folder, self.img_folder)
                         
             # Process the final data
-            self.create_splits(yolo_data, self.yolo_output_dir, splits=(0.7, 0.2, 0.1))
+            self.create_splits(yolo_data, self.yolo_output_dir, splits=(0.8, 0.2))
 
             # Create the data.yaml file
             self.create_yaml(self.yolo_output_dir, self.classes)
@@ -80,7 +85,6 @@ class TeethSeg():
         yaml_content = {
             "train": os.path.join(os.getcwd(), self.yolo_output_dir, "train"),
             "val": os.path.join(os.getcwd(), self.yolo_output_dir, "val"),
-            "test": os.path.join(os.getcwd(), self.yolo_output_dir, "test"),
             "nc": len(class_map),
             "names": names_dict,
             "colors": colors_list
@@ -193,21 +197,29 @@ class TeethSeg():
 
         return yolo_data
 
-    def create_splits(self, yolo_data: dict, output_dir, splits=(0.7, 0.2, 0.1)):
+    def create_splits(self, yolo_data: dict, output_dir, splits=(0.8, 0.2)):
         # Shuffle the data of yolo_data (which is a list of key-value pairs)
         images = list(yolo_data.keys())
         random.shuffle(images)
 
         # Calculate split indices
         total_images = len(images)
-        train_count = int(splits[0] * total_images)
-        val_count = int(splits[1] * total_images)
+        train_count = round(splits[0] * total_images)
+        val_count = round(splits[1] * total_images)
         train_images = images[:train_count]
-        val_images = images[train_count : train_count + val_count]
-        test_images = images[train_count + val_count :]
+        val_images = images[train_count:train_count + val_count]
+
+        print('Image Dataset statistics:')
+        print('/-----------------------\\')
+        print('|  Subset  |  # Images  |')
+        print('|-----------------------|')
+        print('|  Train   | {:8d}   |'.format(len(train_images)))
+        print('|  Val     | {:8d}   |'.format(len(val_images)))
+        print("| Image enhancement: {:5s} |".format("ON" if self.enhance_images else "OFF"))
+        print('\\----------------------/')
 
         # Create the splits
-        for split, split_images in zip(["train", "val", "test"], [train_images, val_images, test_images]):
+        for split, split_images in zip(["train", "val"], [train_images, val_images]):
             split_dir = os.path.join(output_dir, split)
             os.makedirs(split_dir, exist_ok=True)
             for img in split_images:
@@ -215,6 +227,19 @@ class TeethSeg():
                     f.write("\n".join(yolo_data[img]))
                     
                 # Copy the image file
-                img_path = os.path.join(self.img_folder, img)
-                img_dest = os.path.join(split_dir, img)
-                shutil.copy(img_path, img_dest)
+                # == Before copying, we need to preprocess the image
+                
+                # Get image paths
+                image_path = os.path.join(self.img_folder, img)
+                dest_path = os.path.join(split_dir, img)
+                
+                if not os.path.exists(image_path):
+                    raise FileNotFoundError(f"Image {image_path} does not exist.")
+                else:
+                    # Preprocess the image with Sharpening, Contrast Adjustment using Histogram Equalization and Gaussian Filtering
+                    if self.enhance_images:
+                        augmented_image = preprocess_image(image_path)
+                        cv2.imwrite(dest_path, augmented_image)
+                    else:
+                        # Copy the image without enhancement
+                        shutil.copy(image_path, dest_path)

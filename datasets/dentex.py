@@ -2,10 +2,16 @@ import json
 import os
 import random
 import shutil
+import sys
 from collections import defaultdict
 
+import cv2
 import yaml
 from tqdm import tqdm
+
+# Local imports
+sys.path.append("./")
+from misc.augmentations import preprocess_image
 
 # https://huggingface.co/datasets/ibrahimhamamci/DENTEX
 class Dentex():
@@ -14,9 +20,10 @@ class Dentex():
         self.dataset_name = dataset_configs["name"]
         self.data_path = dataset_configs["path"]
         self.create_yolo_version = dataset_configs["create_yolo_version"] # If True, the dataset will be converted to the YOLO format
+        self.enhance_images = dataset_configs["enhance_images"] # If True, the images will be enhanced using the preprocess_image function
 
         # Directories
-        self.train_dir = os.path.join(self.data_path, 'training_data')
+        self.train_dir = os.path.join(self.data_path, 'training_data') 
         self.val_dir = os.path.join(self.data_path, 'validation_data')
         self.test_dir = os.path.join(self.data_path, 'test_data')
 
@@ -150,6 +157,22 @@ class Dentex():
                 'is_val': is_val
             }
 
+        # Plot statistics of the dataset (len of train and val sets)
+        print('Image Dataset statistics:')
+        print('/------------------------------------\\')
+        print('|  Subset                |  # Images  |')
+        print('|-------------------------------------|')
+        print('|  Train (Quadrant)      | {:8d}      |'.format(len(quadrant) - num_val_quadrant))
+        print('|  Train (Enumeration)   | {:8d}      |'.format(len(quadrant_enum) - num_val_quadrant_enum))
+        print('|  Train (Total)         | {:8d}      |'.format(len(merged_data) - num_val_quadrant - num_val_quadrant_enum))
+        print('|-------------------------------------|')
+        print('|  Val (Quadrant)        | {:8d}      |'.format(num_val_quadrant))
+        print('|  Val (Enumeration)     | {:8d}      |'.format(num_val_quadrant_enum))
+        print('|  Val (Total)           | {:8d}      |'.format(num_val_quadrant + num_val_quadrant_enum))
+        print('|-------------------------------------|')
+        print("| Image enhancement: {:5s} |".format("ON" if self.enhance_images else "OFF"))
+        print('\\------------------------------------/')
+
         # Process and save images
         for new_file_name in tqdm(merged_data.keys(), desc="Processing merged YOLO data", unit="images"):
             data_info = merged_data[new_file_name]
@@ -166,10 +189,22 @@ class Dentex():
             # Copy the image to the YOLO output directory
             # In case the original filename is needed, it can be accessed via data_info['original_filename']
             # In this way we can keep track of the original filename when we deal with quadrant_enum images (since they are renamed)
-            shutil.copy(
-                os.path.join(data_info['src_dir'], data_info['original_filename']), 
-                os.path.join(self.yolo_output_dir, output_subdir, display_file_name)
-            )
+            # == Before copying, we must open the image and apply some preprocessing, then we can save it
+            
+            # Get image paths
+            image_path = os.path.join(data_info['src_dir'], data_info['original_filename'])
+            dest_path = os.path.join(self.yolo_output_dir, output_subdir, display_file_name)
+            
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"Image {image_path} does not exist.")
+            else:
+                # Preprocess the image with Sharpening, Contrast Adjustment using Histogram Equalization and Gaussian Filtering
+                if self.enhance_images:
+                    augmented_image = preprocess_image(image_path)
+                    cv2.imwrite(dest_path, augmented_image)
+                else:
+                    # Copy the image without enhancement
+                    shutil.copy(image_path, dest_path)
 
     def convert_to_yolo_format(self, json_data, quadrant_classes):
         """

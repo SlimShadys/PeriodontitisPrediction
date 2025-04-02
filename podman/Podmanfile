@@ -5,15 +5,25 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     ffmpeg \
     libsm6 \
-    libxext6
+    libxext6 \
+    screen
 
-COPY requirements.txt /
+COPY requirements_linux.txt /
+
+# Silence pip warning about using pip as root
+ENV PIP_ROOT_USER_ACTION=ignore
+
+# Upgrade pip before installing dependencies
+RUN pip install --upgrade pip
 
 # Install Python dependencies
-RUN pip install -r /requirements.txt
+RUN pip install -r /requirements_linux.txt
 
 # Cache directory creation
 RUN mkdir /.cache && chmod 777 /.cache
 
 # Here we should enable WandB with: yolo settings wandb=True at '/root/.config/Ultralytics/settings.json'
 RUN yolo settings wandb=True
+
+# Set the environment variable for matplotlib (for storing local cache files)
+ENV MPLCONFIGDIR=/tmp/matplotlib

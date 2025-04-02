@@ -55,6 +55,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     # Get dataset and data path
     dataset_name = dataset["name"]
     data_path = dataset["path"]
+    enhance = dataset["enhance"]
     #data = dataset["data"]
 
     # Get model path
@@ -102,7 +103,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         wandb_run.config.update({"yolo_version": yolo_version, "model_version": model_version, "dataset_name": dataset_name,
             "device": device, "imgsz": imgsz, "epochs": epochs, "batch": batch, "optimizer": optimizer,
             "lr0": lr0, "lrf": lrf, "cos_lr": cos_lr, "close_mosaic": close_mosaic,
-            "momentum": momentum, "weight_decay": weight_decay, "patience": patience, "augmentations": augmentations,
+            "momentum": momentum, "weight_decay": weight_decay, "patience": patience, "augmentations": augmentations, "enhance": enhance,
             "resume": resume, "save_dir": save_dir, "model_path": model_path
         })
 
@@ -136,8 +137,18 @@ def main():
     else:
         version = "v0.1"                # Set the version of the run (saved locally ONLY)
 
+    dataset_configs = {
+        'name': 'TeethSeg',
+        'task_type': 'segmentation',
+        'path': os.path.join(os.getcwd(), "data", "TeethSeg"), # For local testing
+        #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")), # For Docker testing
+        'url': "https://www.kaggle.com/api/v1/datasets/download/humansintheloop/teeth-segmentation-on-dental-x-ray-images",
+        'create_yolo_version': True,
+        'enhance': True, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
+    }
+
     model_configs = {
-        'yolo_version': "yoloe-v8",      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
+        'yolo_version': "11",      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
         'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         # Network-related
@@ -162,15 +173,6 @@ def main():
         'resume': False,       # Resume training from the last checkpoint (last.pt)
     }
 
-    dataset_configs = {
-        'name': 'TeethSeg',
-        'task_type': 'segmentation',
-        'path': os.path.join(os.getcwd(), "data", "TeethSeg"), # For local testing
-        #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")), # For Docker testing
-        'url': "https://www.kaggle.com/api/v1/datasets/download/humansintheloop/teeth-segmentation-on-dental-x-ray-images",
-        'create_yolo_version': False
-    }
-    
     # Get the dataset
     dataset_configs['data'] = get_dataset(dataset_configs)
 
@@ -229,7 +231,5 @@ if __name__ == '__main__':
         torch.cuda.set_device(CUDA_DEVICE)
     
         print(f"Successfully set CUDA device with ID: {torch.cuda.current_device()}")
-    
-    os.environ['MPLCONFIGDIR'] = "/work/project"
     
     main()

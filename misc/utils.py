@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 sys.path.append("./") # Needed for local imports
 
@@ -27,7 +28,7 @@ def run_checks(model_version, size_version, task_type="", dataset_configs=None):
         },
         "yolov9": {
             "sizes": ["t", "s", "m", "c", "e"],
-            "suffixes": [""]
+            "suffixes": ["", "-seg"]
         },
         "yolov10": {
             "sizes": ["n", "s", "m", "b", "l", "x"],
@@ -147,3 +148,7 @@ def get_model_path(resume, save_dir, model_version, size_version, task_type="-se
         model_path = model_name
     
     return model_path
+
+def is_docker() -> bool:
+    cgroup = Path('/proc/self/cgroup')
+    return Path('/.dockerenv').is_file() or (cgroup.is_file() and 'docker' in cgroup.read_text())
