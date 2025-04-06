@@ -2,6 +2,9 @@ import os
 import sys
 from pathlib import Path
 
+import torch
+from PIL import Image
+
 sys.path.append("./") # Needed for local imports
 
 def run_checks(model_version, size_version, task_type="", dataset_configs=None):
@@ -152,3 +155,48 @@ def get_model_path(resume, save_dir, model_version, size_version, task_type="-se
 def is_docker() -> bool:
     cgroup = Path('/proc/self/cgroup')
     return Path('/.dockerenv').is_file() or (cgroup.is_file() and 'docker' in cgroup.read_text())
+
+def read_image(img_path):
+    """Keep reading image until succeed.
+    This can avoid IOError incurred by heavy IO process."""
+    got_img = False
+    if not os.path.exists(img_path):
+        raise IOError("{} does not exist".format(img_path))
+    while not got_img:
+        try:
+            img = Image.open(img_path).convert('RGB')
+            got_img = True
+        except IOError:
+            print("IOError incurred when reading '{}'. Will redo. Don't worry. Just chill.".format(img_path))
+            pass
+    return img
+
+def save_model(state, output_dir, model_path='model.pth'):
+    '''
+        Save the model to a file
+        @param state: The state of the model, optimizer, scheduler, and loss value
+        @param output_dir: The output directory to save the model
+        @param model_path: The file name of the model to save
+    '''
+    torch.save(state, os.path.join(output_dir, model_path))
+    
+def load_model(model_path: str,
+               model: torch.nn.Module,
+               optimizer: torch.optim.Optimizer,
+               scheduler_warmup: torch.optim.lr_scheduler._LRScheduler,
+               device):
+    '''
+    Load the model from a file
+    @param model_path: The path to the model file
+    @param model: The model to load
+    @param optimizer: The optimizer to load
+    @param scheduler_warmup: The scheduler to load
+    @param device: The device to load the model to
+    '''
+    checkpoint = torch.load(model_path, map_location=device, weights_only=False)
+    model.load_state_dict(checkpoint['model'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    scheduler_warmup.load_state_dict(checkpoint['scheduler'])
+    start_epoch = checkpoint['epoch'] + 1
+    print(f"Correctly loaded the model, optimizer, and scheduler from: {model_path}")
+    return model, optimizer, scheduler_warmup, start_epoch
