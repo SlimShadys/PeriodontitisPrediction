@@ -144,7 +144,7 @@ def main():
         #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")), # For Docker testing
         'url': "https://www.kaggle.com/api/v1/datasets/download/humansintheloop/teeth-segmentation-on-dental-x-ray-images",
         'create_yolo_version': True,
-        'enhance': True, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
+        'enhance_images': True, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
     }
 
     model_configs = {

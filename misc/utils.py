@@ -105,6 +105,12 @@ def get_dataset(dataset_configs):
             # =================================================================================================
             import datasets.dentex as dentex
             return dentex.Dentex(dataset_configs=dataset_configs)
+        elif dataset_name == "Periapical":
+            # =================================================================================================
+            # Periapical Dataset
+            # =================================================================================================
+            import datasets.periapical as periapical
+            return periapical.PeriapicalDatasetDet(dataset_configs=dataset_configs)
         else:
             raise ValueError(f"Unsupported dataset for detection: {dataset_name}")
     else:

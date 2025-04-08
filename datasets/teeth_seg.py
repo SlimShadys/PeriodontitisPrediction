@@ -26,7 +26,7 @@ class TeethSeg():
         self.data_path = dataset_configs["path"]
         self.url = dataset_configs["url"]
         self.create_yolo_version = dataset_configs["create_yolo_version"] # If True, the dataset will be converted to the YOLO format
-        self.enhance_images = dataset_configs["enhance"] # If True, the images will be enhanced using the augmentations defined in misc/augmentations.py
+        self.enhance_images = dataset_configs["enhance_images"] # If True, the images will be enhanced using the augmentations defined in misc/augmentations.py
 
         # Download the Dataset if it doesn't exist
         if not os.path.exists(self.data_path):

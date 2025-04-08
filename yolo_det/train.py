@@ -54,8 +54,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     # Get dataset and data path
     dataset_name = dataset["name"]
     data_path = dataset["path"]
-    enhance = dataset["enhance"]
-    #data = dataset["data"]
+    enhance = dataset["enhance_images"]
 
     # Get model path
     model_path = get_model_path(resume, save_dir, yolo_version, model_version)
@@ -106,12 +105,16 @@ def main():
         version = "v2.1"                # Set the version of the run (saved locally ONLY)
 
     dataset_configs = {
-        'name': 'DENTEX',
+        'name': 'Periapical', # Name of the dataset (periapical, dentex, etc.)
         'task_type': 'detection',
-        'path': os.path.join(os.getcwd(), "data", "DENTEX", "DENTEX"), # For local testing
+        # == Periapical Dataset
+        # 'path': os.path.join(os.getcwd(), "..", "datasets", 'Periapical Dataset', 'Periapical Lesions'), # For Docker testing
+        'path': os.path.join(os.getcwd(), "data", "Periapical Dataset", "Periapical Lesions"), # For local testing
+        # == DENTEX Dataset
+        # 'path': os.path.join(os.getcwd(), "data", "DENTEX", "DENTEX"), # For local testing
         # 'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DENTEX", "DENTEX")),  # For Docker testing
         'create_yolo_version': True,
-        'enhance': True, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
+        'enhance_images': False, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
     }
 
     model_configs = {
@@ -180,7 +183,7 @@ def main():
 if __name__ == '__main__':
     # If a single GPU is exposed (--device nvidia.com/gpu=4), we should leave this as 0
     # If multiple GPUs are exposed, then we should set CUDA_DEVICE properly [0, 1] / [1, 2, 3]
-    CUDA_DEVICE = 4
+    CUDA_DEVICE = 0
 
     available_gpus = torch.cuda.device_count()
     print("Available GPUs:", available_gpus)

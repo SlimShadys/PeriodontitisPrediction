@@ -55,13 +55,13 @@ class Dentex():
             categories_1 = self.quadrant_json["categories"]
             categories_2 = self.quadrant_enum_json["categories_2"]
 
-            class_map, quadrant_classes, tooth_classes = self.unify_categories(categories_1, categories_2)
+            class_map, _, _ = self.unify_categories(categories_1, categories_2)
 
             # Process quadrant data
-            quadrant_data = self.convert_to_yolo_format(self.quadrant_json, quadrant_classes)
+            quadrant_data = self.convert_to_yolo_format(self.quadrant_json)
             
             # Process quadrant enumeration data
-            quadrant_enum_data = self.convert_to_yolo_format(self.quadrant_enum_json, quadrant_classes)
+            quadrant_enum_data = self.convert_to_yolo_format(self.quadrant_enum_json)
             
             final_data = {
                 "quadrant": [quadrant_data, os.path.join(self.train_dir, "quadrant", "xrays")],
@@ -71,8 +71,6 @@ class Dentex():
             
             # Process the final data
             self.process_yolo_data(final_data)
-
-            # Here there could be a re-mapping of the validation IDs to start from a 0-based index
 
             # Create the data.yaml file
             self.create_yaml(self.yolo_output_dir, class_map)
@@ -135,7 +133,7 @@ class Dentex():
                 'is_val': is_val
             }
             
-        # Process quadrant_enum data (already mapped to classes 4-11)
+        # Process quadrant_enum data
         len_quadrant = len(quadrant)
         for orig_file_name in quadrant_enum_keys:
             # Rename the file by adding an offset to prevent overlap
@@ -143,7 +141,8 @@ class Dentex():
             prefix, idx = base_name.split("_")
             new_file_name = f"{prefix}_{int(idx) + len_quadrant}.{ext}"
 
-            # Modify labels to add class offset
+            # IMPORTANT: Modify quadrant_enum data labels to add class offset
+            # From 0 to 3 (quadrant) and from 4 to 11 (enumeration)
             offset_labels = [
                 f"{int(label.split()[0]) + 4} {' '.join(label.split()[1:])}" 
                 for label in quadrant_enum[orig_file_name]
@@ -206,13 +205,12 @@ class Dentex():
                     # Copy the image without enhancement
                     shutil.copy(image_path, dest_path)
 
-    def convert_to_yolo_format(self, json_data, quadrant_classes):
+    def convert_to_yolo_format(self, json_data):
         """
         Converts the dataset to YOLO format for training or validation.
 
         Args:
             json_data (dict): The JSON data containing annotations and images.
-            quadrant_classes (dict): Mapping of quadrant class IDs to names.
         """
         image_dict = {img["id"]: img for img in json_data["images"]}
         yolo_labels = defaultdict(list)
