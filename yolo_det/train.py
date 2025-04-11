@@ -57,7 +57,11 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     enhance = dataset["enhance_images"]
 
     # Get model path
-    model_path = get_model_path(resume, save_dir, yolo_version, model_version)
+    # Last parameter is the task type:
+    #   - "" for detection
+    #   - "-seg" for segmentation
+    #   - "-cls" for classification
+    model_path = get_model_path(resume, save_dir, yolo_version, model_version, '')
         
     # Load the YOLO model
     if model_path.startswith("yoloe"):
@@ -105,7 +109,7 @@ def main():
         version = "v2.1"                # Set the version of the run (saved locally ONLY)
 
     dataset_configs = {
-        'name': 'Periapical', # Name of the dataset (periapical, dentex, etc.)
+        'name': 'Periapical', # Name of the dataset ('Periapical', 'DENTEX', etc.)
         'task_type': 'detection',
         # == Periapical Dataset
         # 'path': os.path.join(os.getcwd(), "..", "datasets", 'Periapical Dataset', 'Periapical Lesions'), # For Docker testing
@@ -113,7 +117,7 @@ def main():
         # == DENTEX Dataset
         # 'path': os.path.join(os.getcwd(), "data", "DENTEX", "DENTEX"), # For local testing
         # 'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DENTEX", "DENTEX")),  # For Docker testing
-        'create_yolo_version': True,
+        'create_yolo_version': False,
         'enhance_images': False, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
     }
 
@@ -125,7 +129,7 @@ def main():
         'imgsz': 1280,
         'epochs': 80,
         'batch': 16,
-        'optimizer': 'adamw',
+        'optimizer': 'adamw',  # Choose between [SGD, Adam, AdamW, RMSProp, auto]
         'lr0': 1e-2,
         'lrf': 1e-2,
         'cos_lr': False,
@@ -136,7 +140,7 @@ def main():
         # Augmentations
         'hsv_h': 0.0,           # Image HSV-Hue augmentation (fraction)
         'hsv_s': 0.0,           # Image HSV-Saturation augmentation (fraction)
-        'hsv_v': 0.1,           # Image HSV-Value augmentation (fraction)
+        'hsv_v': 0.0,           # Image HSV-Value augmentation (fraction)
         'degrees': 0.0,         # Image rotation (+/- deg)
         'fliplr': 0.0,          # Horizontal flip probability
         # Resume option

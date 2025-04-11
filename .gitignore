@@ -4,6 +4,9 @@ data/*
 # YOLO models
 yolo*.pt
 
+# MobileCLIP models
+mobileclip_*.pt
+
 # Ignore python cache files
 __pycache__/*
 datasets/__pycache__/*

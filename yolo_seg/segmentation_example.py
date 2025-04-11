@@ -90,6 +90,16 @@ def visualize_segmentation(directory, examples_to_show=4):
             # Draw polygon
             if len(absolute_points) >= 3:
                 draw.polygon(absolute_points, fill=color)
+                
+            # Draw points as red circles
+            for point in absolute_points:
+                x, y = point
+                radius = 4  # Radius of the circle
+                draw.ellipse(
+                    [(x - radius, y - radius), (x + radius, y + radius)],
+                    fill="red",
+                    outline="red"
+                )
         
         # Convert mask to numpy array
         mask_np = np.array(mask)

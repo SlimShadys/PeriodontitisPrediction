@@ -208,11 +208,15 @@ class PeriapicalDatasetDet():
             "train": os.path.join(os.getcwd(), output_dir, "train"),
             "val": os.path.join(os.getcwd(), output_dir, "val"),
             "nc": 3,
-            "names": ['PAI 3', 'PAI 4', 'PAI 5']
+            "names": {
+                0: "PAI 3",
+                1: "PAI 4",
+                2: "PAI 5"
+            }
         }
 
         with open(os.path.join(output_dir, "data.yaml"), 'w') as f:
-            yaml.dump(yaml_content, f, default_flow_style=False)          
+            yaml.dump(yaml_content, f, default_flow_style=None, sort_keys=False)
 
 class PeriapicalDataset():
     def __init__(self, data_path):

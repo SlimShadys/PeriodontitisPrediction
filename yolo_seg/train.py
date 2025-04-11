@@ -59,7 +59,11 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     #data = dataset["data"]
 
     # Get model path
-    model_path = get_model_path(resume, save_dir, yolo_version, model_version)
+    # Last parameter is the task type:
+    #   - "" for detection
+    #   - "-seg" for segmentation
+    #   - "-cls" for classification
+    model_path = get_model_path(resume, save_dir, yolo_version, model_version, '-seg')
         
     # Load the YOLO model
     if model_path.startswith("yoloe"):
@@ -144,7 +148,7 @@ def main():
         #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")), # For Docker testing
         'url': "https://www.kaggle.com/api/v1/datasets/download/humansintheloop/teeth-segmentation-on-dental-x-ray-images",
         'create_yolo_version': True,
-        'enhance_images': True, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
+        'enhance_images': False, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
     }
 
     model_configs = {
@@ -155,7 +159,7 @@ def main():
         'imgsz': 1280,
         'epochs': 80,
         'batch': 4,
-        'optimizer': 'auto',
+        'optimizer': 'auto',  # Choose between [SGD, Adam, AdamW, RMSProp, auto]
         'lr0': 1e-2,
         'lrf': 1e-2,
         'cos_lr': False,

@@ -73,8 +73,21 @@ def run_checks(model_version, size_version, task_type="", dataset_configs=None):
         raise ValueError(f"Unsupported model size '{size_version}' for {model_family}")
         
     # Check if the task type is supported for this model family
-    if task_type and task_type not in valid_configs[model_family]["suffixes"]:
-        raise ValueError(f"Unsupported task type '{task_type}' for {model_family}")  
+    if task_type:
+        if task_type == 'detection': task_type = ''
+        elif task_type == 'segmentation': task_type = '-seg'
+        elif task_type == 'classification': task_type = '-cls'
+        elif task_type == 'pose': task_type = '-pose'
+        elif task_type == 'obb': task_type = '-obb'
+        elif task_type == 'oiv7': task_type = '-oiv7'
+        elif task_type == 'world': task_type = '-world'
+        elif task_type == 'worldv2': task_type = '-worldv2'
+        elif task_type == 'segmentation-pf': task_type = '-seg-pf'
+        else:
+            raise ValueError(f"Unsupported task type '{task_type}'")
+        
+        if task_type not in valid_configs[model_family]["suffixes"]:
+            raise ValueError(f"Unsupported task type '{task_type}' for {model_family}")  
 
     # All checks passed
     return True
