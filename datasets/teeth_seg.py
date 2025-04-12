@@ -24,7 +24,7 @@ class TeethSeg():
         # Generic variables
         self.dataset_name = dataset_configs["name"]
         self.data_path = dataset_configs["path"]
-        self.url = dataset_configs["url"]
+        self.url = "https://www.kaggle.com/api/v1/datasets/download/humansintheloop/teeth-segmentation-on-dental-x-ray-images" # URL to download the dataset
         self.create_yolo_version = dataset_configs["create_yolo_version"] # If True, the dataset will be converted to the YOLO format
         self.enhance_images = dataset_configs["enhance_images"] # If True, the images will be enhanced using the augmentations defined in misc/augmentations.py
 
@@ -75,19 +75,12 @@ class TeethSeg():
     def create_yaml(self, yolo_dir, class_map):
         # Create a dictionary with class names as keys and class IDs as values
         names_dict = {i: name for i, name in enumerate(class_map.keys())}
-
-        # Create colors list (assuming class_map values contain RGB colors)
-        # If class_map[name] contains (class_id, color) tuples:
-        colors_list = [class_map[name][1] if isinstance(class_map[name], (list, tuple)) and len(class_map[name]) > 1 
-                    else [0, 0, 0]  # Default to black if no color specified
-                    for name in class_map]
     
         yaml_content = {
             "train": os.path.join(os.getcwd(), self.yolo_output_dir, "train"),
             "val": os.path.join(os.getcwd(), self.yolo_output_dir, "val"),
             "nc": len(class_map),
-            "names": names_dict,
-            "colors": colors_list
+            "names": names_dict
         }
         
         with open(os.path.join(yolo_dir, "data.yaml"), 'w') as f:
@@ -209,14 +202,14 @@ class TeethSeg():
         train_images = images[:train_count]
         val_images = images[train_count:train_count + val_count]
 
-        print('Image Dataset statistics:')
-        print('/-----------------------\\')
-        print('|  Subset  |  # Images  |')
-        print('|-----------------------|')
-        print('|  Train   | {:8d}   |'.format(len(train_images)))
-        print('|  Val     | {:8d}   |'.format(len(val_images)))
-        print("| Image enhancement: {:5s} |".format("ON" if self.enhance_images else "OFF"))
-        print('\\----------------------/')
+        print("Image Dataset statistics:")
+        print("/-------------------------------\\")
+        print("| Subset           | # Images  |")
+        print("|-------------------------------|")
+        print("| Train            | {:9d} |".format(len(train_images)))
+        print("| Val              | {:9d} |".format(len(val_images)))
+        print("| Enhancement      | {:>9s} |".format("ON" if self.enhance_images else "OFF"))
+        print("\\-------------------------------/")
 
         # Create the splits
         for split, split_images in zip(["train", "val"], [train_images, val_images]):

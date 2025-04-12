@@ -55,7 +55,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     # Get dataset and data path
     dataset_name = dataset["name"]
     data_path = dataset["path"]
-    enhance = dataset["enhance"]
+    enhance = dataset["enhance_images"]
     #data = dataset["data"]
 
     # Get model path
@@ -131,28 +131,34 @@ def main():
     # ============== PARAMETERS ============== #
 
     # WandB configs
-    use_wandb = False                    # Set to True if you want to use WandB for logging | # If True, also run ```yolo settings wandb=True``` in the terminal
+    use_wandb = True                    # Set to True if you want to use WandB for logging | # If True, also run ```yolo settings wandb=True``` in the terminal
+    
     if use_wandb:
         wandb.login()
         entity = "SlimShadys"           # Set the wandb entity where your project will be logged (generally your team name).
         project = "FIS2-YOLOSegmentation"  # Set the wandb project where this run will be logged.
-        group = "v0.1"                  # Set the group name of the run, this is useful when comparing multiple runs in a project.
+        group = "v0.3"                  # Set the group name of the run, this is useful when comparing multiple runs in a project.
         wandb_id = None           # Set the run ID if you want to resume a run
     else:
-        version = "v0.1"                # Set the version of the run (saved locally ONLY)
+        version = "v0.3"                # Set the version of the run (saved locally ONLY)
 
     dataset_configs = {
-        'name': 'TeethSeg',
         'task_type': 'segmentation',
-        'path': os.path.join(os.getcwd(), "data", "TeethSeg"), # For local testing
+        # ==== TeethSeg Dataset
+        #'name': 'TeethSeg',
+        #'path': os.path.join(os.getcwd(), "data", "TeethSeg"), # For local testing
         #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")), # For Docker testing
-        'url': "https://www.kaggle.com/api/v1/datasets/download/humansintheloop/teeth-segmentation-on-dental-x-ray-images",
-        'create_yolo_version': True,
+        # ==== DualLabel Dataset
+        'name': 'DualLabel',
+        'path': os.path.join(os.getcwd(), "data", "DualLabel"), # For local testing
+        #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DualLabel")), # For Docker testing
+        # ==================== #
+        'create_yolo_version': True, # Create the YOLO version of the dataset
         'enhance_images': False, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
     }
 
     model_configs = {
-        'yolo_version': "11",      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
+        'yolo_version': "8",      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
         'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         # Network-related
@@ -207,9 +213,8 @@ def main():
     else:
         model_configs["save_dir"] = os.path.join(os.getcwd(), "runs", "segment", version) # Save directory
 
-    # Run checks (Task type is empty because "" corresponds to detection)
-    run_checks(model_version=model_configs["yolo_version"], size_version=model_configs["model_version"],
-               task_type="-seg", dataset_configs=dataset_configs)
+    # Run checks
+    run_checks(model_version=model_configs["yolo_version"], size_version=model_configs["model_version"], dataset_configs=dataset_configs)
 
     # Train the model
     train_model(model_configs, dataset_configs, wandb_run)

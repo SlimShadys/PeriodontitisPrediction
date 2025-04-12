@@ -71,16 +71,14 @@ class PeriapicalDatasetDet():
             self.validation_labels = self.labels[int(len(self.labels) * train_split):]
 
             # Plot statistics of the dataset (len of train and val sets)
-            print('Image Dataset statistics:')
-            print('/-------------------------------------\\')
-            print('|  Subset                |  # Images  |')
-            print('|-------------------------------------|')
-            print('|  Train                 | {:5d}      |'.format(len(self.train_labels)))
-            print('|-------------------------------------|')
-            print('|  Val                   | {:5d}      |'.format(len(self.validation_labels)))
-            print('|-------------------------------------|')
-            print("| Image enhancement: {:16s} |".format("ON" if self.enhance_images else "OFF"))
-            print('\\-------------------------------------/')
+            print("Image Dataset statistics:")
+            print("/-------------------------------\\")
+            print("| Subset           | # Images  |")
+            print("|-------------------------------|")
+            print("| Train            | {:9d} |".format(len(self.train_labels)))
+            print("| Val              | {:9d} |".format(len(self.validation_labels)))
+            print("| Enhancement      | {:>9s} |".format("ON" if self.enhance_images else "OFF"))
+            print("\\-------------------------------/")
 
             # Process the data
             self.process_yolo_data(data, self.train_labels, self.validation_labels)

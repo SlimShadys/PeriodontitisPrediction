@@ -147,9 +147,8 @@ def main():
         'resume': False,       # Resume training from the last checkpoint (last.pt)
     }
 
-    # Run checks (Task type is empty because "" corresponds to detection)
-    run_checks(model_version=model_configs["yolo_version"], size_version=model_configs["model_version"],
-               task_type="", dataset_configs=dataset_configs)
+    # Run checks
+    run_checks(model_version=model_configs["yolo_version"], size_version=model_configs["model_version"], dataset_configs=dataset_configs)
 
     # Get the dataset
     dataset_configs['data'] = get_dataset(dataset_configs)

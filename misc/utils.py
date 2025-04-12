@@ -7,14 +7,13 @@ from PIL import Image
 
 sys.path.append("./") # Needed for local imports
 
-def run_checks(model_version, size_version, task_type="", dataset_configs=None):
+def run_checks(model_version, size_version, dataset_configs=None):
     """
     Validate YOLO model configuration based on version, model size, and task type.
     
     Args:
         model_version: int or str - The YOLO version (3, 5, 8, 9, 10, 11, 12, etc.)
         size_version: str - Model size/variant (n, s, m, l, x, t, c, e, b)
-        task_type: str - Task suffix like "", "-cls", "-seg", etc.
         dataset_configs: dict - Dataset configurations
     
     Returns:
@@ -23,6 +22,12 @@ def run_checks(model_version, size_version, task_type="", dataset_configs=None):
     Raises:
         ValueError: If the configuration is not supported
     """
+    # Retrieve the task type from dataset_configs if provided
+    if dataset_configs is not None:
+        task_type = dataset_configs.get('task_type', '')
+    else:
+        raise ValueError("Dataset configuration file must be provided to determine task type")
+    
     # Define valid configurations as a dictionary
     valid_configs = {
         "yolov8": {
@@ -99,7 +104,7 @@ def get_dataset(dataset_configs):
 
     # Check if the dataset path exists
     if not os.path.exists(dataset_path):
-        raise ValueError(f"Dataset path does not exist: {dataset_path}")
+        print(f"Dataset path '{dataset_path}' does not exist.")
 
     if task_type == "segmentation":
         if dataset_name == "TeethSeg":
@@ -108,6 +113,9 @@ def get_dataset(dataset_configs):
             # =================================================================================================
             import datasets.teeth_seg as teeth_seg
             return teeth_seg.TeethSeg(dataset_configs=dataset_configs)
+        elif dataset_name == "DualLabel":
+            import datasets.dual_label as dual_label
+            return dual_label.DualLabel(dataset_configs=dataset_configs)
         else:
             raise ValueError(f"Unsupported dataset for segmentation: {dataset_name}")
 
