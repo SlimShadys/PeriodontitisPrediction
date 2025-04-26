@@ -7,8 +7,8 @@ from shapely.geometry import Polygon  # For centroid calculation
 from ultralytics import YOLO
 
 # --- Configuration ---
-MODEL_PATH = os.path.join(os.getcwd(), "yolo_seg", "best-silverywater.pt")
-CONF_THRESHOLD_PRED = 0.30 # Initial confidence threshold for YOLO prediction
+MODEL_PATH = os.path.join(os.getcwd(), "yolo_seg", "best-dulcet-wildflower-40.pt")
+CONF_THRESHOLD_PRED = 0.50 # Initial confidence threshold for YOLO prediction
 IMAGE_SIZE = 1280 # Image size for YOLO model
 DEVICE = "cuda" # or "cpu"
 
@@ -16,10 +16,10 @@ DEVICE = "cuda" # or "cpu"
 # > TO BE IMPLEMENTED
 # Test-Time Augmentation (TTA) settings
 TTA_ANGLES = [0, 15, -15, 30, -30] # Rotation angles for TTA (15deg steps)
-IOU_THRESHOLD = 0.75 # IoU threshold for matching masks 
+IOU_THRESHOLD = 0.75 # IoU threshold for matching masks
 # ========================
 
-IMAGE_PATH = os.path.join(os.getcwd(), "data", "InferenceData", "inference_3.jpg")
+IMAGE_PATH = os.path.join(os.getcwd(), "data", "InferenceData", "inference_2.jpg")
 SAVE_OUTPUT = False # Set to True to save the image, False to display
 
 # --- Color and Class Definitions (from original script) ---
@@ -32,12 +32,13 @@ def generate_tooth_colors(n_classes=33):
         tuple(int(255 * x) for x in mcolors.to_rgb(color))
         for color in base_colors[:n_classes]
     ]
-    # Class index to tooth number mapping (ensure this matches your model's training)
+    # Class index to tooth number mapping
+    # For DualLabel, taken from: https://www.123dentist.com/wp-content/uploads/2017/06/teeth-numbering-systems.png
     tooth_names = {
-        0: '13', 1: '14', 2: '15', 3: '11', 4: '12', 5: '19', 6: '20', 7: '21', 8: '22',
-        9: '23', 10: '24', 11: '25', 12: '27', 13: '32', 14: '16', 15: '26', 16: '17', 17: '1',
-        18: '2', 19: '3', 20: '4', 21: '5', 22: '6', 23: '7', 24: '8', 25: '9', 26: '10',
-        27: '18', 28: '28', 29: '29', 30: '30', 31: '31', 32: '13(polygon)'
+        0: '11', 1: '12', 2: '13', 3: '14', 4: '15', 5: '16', 6: '17', 7: '18', 8: '21',
+        9: '22', 10: '23', 11: '24', 12: '25', 13: '26', 14: '27', 15: '28', 16: '31', 17: '32',
+        18: '33', 19: '34', 20: '35', 21: '36', 22: '37', 23: '38', 24: '41', 25: '42', 26: '43',
+        27: '44', 28: '45', 29: '46', 30: '47', 31: '48', 32: '91'
     }
     # Map class index to color
     return {idx: colors_255[idx] for idx in tooth_names.keys()}, tooth_names
