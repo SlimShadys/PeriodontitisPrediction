@@ -58,8 +58,12 @@ def run_checks(model_version, size_version, dataset_configs=None):
             "sizes": ["s", "m", "l"],
             "suffixes": ["-seg", "-seg-pf"]
         },
+        "rfdetr": {
+            "sizes": ["base", "large"],
+            "suffixes": [""]
+        }
     }
-    
+
     # Determine the model family
     if isinstance(model_version, int):
         model_version = str(model_version)
@@ -70,6 +74,8 @@ def run_checks(model_version, size_version, dataset_configs=None):
         model_family = f"yolo{model_version}"
     elif model_version in ["yoloe-v8", "yoloe-11"]:
         model_family = model_version
+    elif model_version == "RFDETR":
+        model_family = "rfdetr"
     else:
         raise ValueError(f"Unsupported YOLO version: {model_version}")
     
