@@ -1,63 +1,74 @@
-from ultralytics import YOLO
 import os
-from PIL import Image, ImageDraw, ImageFont
 
-# Specify a color for each of the 12 classes
-# 0-3: Quadrants
-# 4-11: Teeth
-colors = {
-    0: 'red',
-    1: 'green',
-    2: 'blue',
-    3: 'yellow',
-    4: 'purple',
-    5: 'orange',
-    6: 'cyan',
-    7: 'magenta',
-    8: 'lime',
-    9: 'pink',
-    10: 'teal',
-    11: 'lavender'
-}
+import cv2
+import matplotlib.pyplot as plt
+import supervision as sv
+from PIL import Image
+from supervision.utils.conversion import pillow_to_cv2
+from ultralytics import YOLO
 
+# Class label mapping
 class_mapping = {
-    0: 2, # Class 0 is Quadrant 2
-    1: 1, # Class 1 is Quadrant 1
-    2: 3, # Class 2 is Quadrant 3
-    3: 4, # Class 3 is Quadrant 4
+    0: 'PAI 3',
+    1: 'PAI 4',
+    2: 'PAI 5',
 }
 
-class_mapping = {
-    0: 'PAI 3', # Class 0 PAI 3
-    1: 'PAI 4', # Class 1 PAI 4
-    2: 'PAI 5', # Class 2 PAI 5
-}
-
-font = ImageFont.truetype("arial.ttf", 40)
-
-# model = YOLO(os.path.join(os.getcwd(), "runs", "detect", "v2.1", "drawn-glitter-15", "weights", "epoch_22.pt"))
+# Load YOLO model
 model = YOLO(os.path.join(os.getcwd(), "yolo_det", "best-lively-durian-49.pt"))
 
-img_path = os.path.join(os.getcwd(), "data", "InferenceData", "inference_3.jpg")
+# Load image
+img_path = os.path.join(os.getcwd(), "data", "InferenceData", "inference_1.jpg")
+image = Image.open(img_path)
+image_width, image_height = image.size
 
-results = model.predict(img_path, imgsz=1280, conf=0.25, device="cuda",)
+# Run prediction
+results = model.predict(img_path, imgsz=1280, conf=0.25, device="cuda")
 
-# Extract boxes from the results
+# Extract boxes, class_ids, and confidences
 boxes = results[0].boxes
+xyxy = boxes.xyxy.cpu().numpy()
+confidences = boxes.conf.cpu().numpy()
+class_ids = boxes.cls.cpu().numpy().astype(int)
 
-teeth_boxes = []
-for box in boxes:
-    class_yolo = box.cls.cpu().numpy()[0]
-    class_name = results[0].names[class_yolo]
-    teeth_boxes.append([class_yolo, class_name, [int(v) for v in box.xyxy.cpu().numpy()[0]]])
+# Create Detections object
+detections = sv.Detections(
+    xyxy=xyxy,
+    confidence=confidences,
+    class_id=class_ids
+)
 
-img = Image.open(img_path)
-draw = ImageDraw.Draw(img)
+# Setup annotators
+text_scale = sv.calculate_optimal_text_scale(resolution_wh=image.size)
+thickness = sv.calculate_optimal_line_thickness(resolution_wh=image.size)
 
-for yolo_cls, name_cls, box in teeth_boxes:
-    draw.rectangle(box, outline=colors[int(yolo_cls)], width=2)
-    
-    # Convert the class to the corresponding class name
-    draw.text((box[0], box[1]+100), str(name_cls), fill=colors[int(yolo_cls)], font=font)
+bbox_annotator = sv.BoxAnnotator(thickness=thickness)
+label_annotator = sv.LabelAnnotator(
+    text_color=sv.Color.BLACK,
+    text_scale=text_scale,
+    text_thickness=thickness,
+    smart_position=True
+)
 
-img.show()
+# Create detection labels
+detection_labels = [
+    f"{class_mapping.get(class_id, str(class_id))} {confidence:.2f}"
+    for class_id, confidence in zip(detections.class_id, detections.confidence)
+]
+
+# Annotate image
+annotated_image = image.copy()
+annotated_image = bbox_annotator.annotate(annotated_image, detections)
+annotated_image = label_annotator.annotate(annotated_image, detections, detection_labels)
+
+# Show image
+if isinstance(annotated_image, Image.Image):
+    detections_image = pillow_to_cv2(annotated_image)
+
+plt.figure(figsize=(12, 12))
+
+plt.imshow(cv2.cvtColor(detections_image, cv2.COLOR_BGR2RGB))
+
+plt.axis("off")
+plt.title("Annotated Image with YOLO")
+plt.show()

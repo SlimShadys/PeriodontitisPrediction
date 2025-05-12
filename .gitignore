@@ -7,6 +7,9 @@ yolo*.pt
 # MobileCLIP models
 mobileclip_*.pt
 
+# RF-DETR models
+rf-detr-*.pth
+
 # Ignore python cache files
 __pycache__/*
 datasets/__pycache__/*

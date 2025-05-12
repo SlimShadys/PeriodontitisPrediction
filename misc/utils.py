@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -48,7 +49,11 @@ def run_checks(model_version, size_version, dataset_configs=None):
         },
         "yolo12": {
             "sizes": ["n", "s", "m", "l", "x"],
-            "suffixes": [""]  # Currently Detect-models only as per https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/downloads.py#L21
+            "suffixes": ["", "-seg"]  # Updates on new models: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/downloads.py#L20
+        },
+        "yolo12-turbo": {
+            "sizes": ["n", "s", "m", "l", "x"],
+            "suffixes": ["", "-seg"]  # Updates on new models: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/downloads.py#L20
         },
         "yoloe-v8": {
             "sizes": ["s", "m", "l"],
@@ -70,7 +75,7 @@ def run_checks(model_version, size_version, dataset_configs=None):
         
     if model_version == "8" or model_version == "9" or model_version == "10":
         model_family = f"yolov{model_version}"
-    elif model_version == "11" or model_version == "12":
+    elif model_version == "11" or model_version == "12" or model_version == "12-turbo":
         model_family = f"yolo{model_version}"
     elif model_version in ["yoloe-v8", "yoloe-11"]:
         model_family = model_version
@@ -87,13 +92,13 @@ def run_checks(model_version, size_version, dataset_configs=None):
     if task_type:
         if task_type == 'detection': task_type = ''
         elif task_type == 'segmentation': task_type = '-seg'
+        elif task_type == 'segmentation-pf': task_type = '-seg-pf'
         elif task_type == 'classification': task_type = '-cls'
         elif task_type == 'pose': task_type = '-pose'
         elif task_type == 'obb': task_type = '-obb'
         elif task_type == 'oiv7': task_type = '-oiv7'
         elif task_type == 'world': task_type = '-world'
         elif task_type == 'worldv2': task_type = '-worldv2'
-        elif task_type == 'segmentation-pf': task_type = '-seg-pf'
         else:
             raise ValueError(f"Unsupported task type '{task_type}'")
         
@@ -124,7 +129,6 @@ def get_dataset(dataset_configs):
             return dual_label.DualLabel(dataset_configs=dataset_configs)
         else:
             raise ValueError(f"Unsupported dataset for segmentation: {dataset_name}")
-
     elif task_type == "detection":
         if dataset_name == "DENTEX":
             # =================================================================================================
@@ -168,12 +172,16 @@ def get_model_path(resume, save_dir, model_version, size_version, task_type="-se
         # Determine the model name format based on version
         if isinstance(model_version, int):
             model_version = str(model_version)
-            
+
         # Construct model name based on version convention
         if model_version in ["8", "9", "10"]:
             model_name = f"yolov{model_version}{size_version}{task_type}.pt"
-        elif model_version in ["11", "12"]:
-            model_name = f"yolo{model_version}{size_version}{task_type}.pt"
+        elif model_version in ["11", "12", "12-turbo"]:
+            # Special handling for 12-turbo
+            if model_version == "12-turbo":
+                model_name = f"yolov12{size_version}{task_type}.yaml" # --> Requires yolov12-turbo and yolov12.yaml in the configs folder
+            else:
+                model_name = f"yolo{model_version}{size_version}{task_type}.pt"
         elif model_version == "yoloe-v8":
             model_name = f"yoloe-v8{size_version}{task_type}.pt"
         elif model_version == "yoloe-11":
@@ -184,6 +192,35 @@ def get_model_path(resume, save_dir, model_version, size_version, task_type="-se
         model_path = model_name
     
     return model_path
+
+def get_last_rfdetr_ckp_name(save_dir):
+    """
+    Get the last checkpoint name for RFDETR.
+    
+    Args:
+        save_dir: str - Directory where checkpoints are saved
+    Returns:
+        str: Path to the last checkpoint
+    """
+    max_epoch = -1
+    latest_ckpt = None
+    pattern = re.compile(r'checkpoint(\d+)\.pth')
+    
+    # Get the last checkpoint name
+    files = [f for f in os.listdir(save_dir) if f.endswith('.pth')]
+    
+    # Checkpoints could be in the format
+    # 'checkpoint.pth' / 'checkpoint_best_ema.pth' / 'checkpoint_best_regular.pth' / 'checkpoint0004.pth' / 'checkpoint_0009.pth'
+    # We need to get the checkpoint with the highest epoch number
+    for ckpt in files:
+        match = pattern.match(ckpt)
+        if match:
+            epoch = int(match.group(1))
+            if epoch > max_epoch:
+                max_epoch = epoch
+                latest_ckpt = ckpt
+                
+    return latest_ckpt
 
 def is_docker() -> bool:
     cgroup = Path('/proc/self/cgroup')

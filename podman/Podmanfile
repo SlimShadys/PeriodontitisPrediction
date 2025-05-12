@@ -28,3 +28,6 @@ RUN yolo settings wandb=True
 
 # Set the environment variable for matplotlib (for storing local cache files)
 ENV MPLCONFIGDIR=/tmp/matplotlib
+
+# Run a bash shell by default
+CMD ["sleep", "infinity"]

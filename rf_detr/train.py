@@ -6,11 +6,11 @@ import torch
 import wandb
 import wandb.wandb_run
 
-from rfdetr import RFDETRBase
+from rfdetr import RFDETRBase, RFDETRLarge
 
 # Local imports
 sys.path.append("./")
-from misc.utils import run_checks, get_dataset, get_model_path
+from misc.utils import get_last_rfdetr_ckp_name, run_checks, get_dataset
 
 def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wandb_run.Run]) -> None:
     """
@@ -22,6 +22,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         wandb_run (Optional[wandb.wandb_run.Run]): Active WandB run for logging.
     """
     # Extract model configs
+    rf_detr_size = model_configs["model_version"]
     device = model_configs["device"]
     imgsz = model_configs["imgsz"]
     epochs = model_configs["epochs"]
@@ -30,6 +31,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     lr = model_configs["lr"]
     lr_encoder = model_configs["lr_encoder"]
     weight_decay = model_configs["weight_decay"]
+    warmup_epochs = model_configs["warmup_epochs"]
     use_ema = model_configs["use_ema"]
     gradient_checkpointing = model_configs["gradient_checkpointing"]
     checkpoint_interval = model_configs["checkpoint_interval"]
@@ -45,9 +47,21 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     data_path = dataset["path"]
     enhance = dataset["enhance_images"]
 
+    # Initialize the RF-DETR model
+    if rf_detr_size == "base":
+        model = RFDETRBase()
+        model_path = 'rf-detr-base.pth'
+    elif rf_detr_size == "large":
+        model = RFDETRLarge()
+        model_path = 'rf-detr-large.pth'
+    else:
+        raise ValueError(f"Invalid RF-DETR size: {rf_detr_size}. Choose 'base' or 'large'.")
+
     # Update the WandB configs before training
     if wandb_run is not None:
         wandb_run.config.update({
+            "model_path": model_path,
+            "model_version": rf_detr_size,
             "dataset_name": dataset_name,
             "device": device,
             "imgsz": imgsz,
@@ -57,6 +71,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
             "lr": lr,
             "lr_encoder": lr_encoder,
             "weight_decay": weight_decay,
+            "warmup_epochs": warmup_epochs,
             "use_ema": use_ema,
             "gradient_checkpointing": gradient_checkpointing,
             "checkpoint_interval": checkpoint_interval,
@@ -69,9 +84,6 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
             "save_dir": save_dir
         })
 
-    # Initialize the RF-DETR model
-    model = RFDETRBase()
-
     # Define training parameters
     train_params = {
         "dataset_dir": os.path.join(data_path, "RFDETR_dataset"),
@@ -82,6 +94,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         "lr_encoder": lr_encoder,
         "resolution": imgsz,
         "weight_decay": weight_decay,
+        "warmup_epochs": warmup_epochs,
         "device": device,
         "use_ema": use_ema,
         "gradient_checkpointing": gradient_checkpointing,
@@ -94,12 +107,13 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         "wandb": wandb_run is not None,
         "project": wandb_run.project if wandb_run else None,
         "run": wandb_run.name if wandb_run else None,
-        "output_dir": save_dir
+        "output_dir": save_dir,
     }
 
     # Include resume checkpoint if specified
     if resume:
-        train_params["resume"] = resume
+        ckp_name = get_last_rfdetr_ckp_name(save_dir)
+        train_params["resume"] = os.path.join(os.getcwd(), "runs", "detect", wandb_run.group, wandb_run.name, ckp_name)
 
     # Train the model
     model.train(**train_params)
@@ -114,40 +128,48 @@ def main():
         entity = "SlimShadys"
         project = "FIS2-YOLODetection"
         group = "v2.2"
-        wandb_id = "d3fafg8d"
+        wandb_id = "inhkgiv3"
     else:
         version = "v2.2"
 
     dataset_configs = {
-        'name': 'Periapical',
+        'name': 'Periapical', # Name of the dataset ('Periapical', 'DENTEX', etc.)
         'task_type': 'detection',
-        'path': os.path.join(os.getcwd(), "data", "Periapical Dataset", "Periapical Lesions"),
+        # == Periapical Dataset
+        'path': os.path.join(os.getcwd(), "..", "datasets", 'Periapical Dataset', 'Periapical Lesions'), # For Docker testing
+        # 'path': os.path.join(os.getcwd(), "data", "Periapical Dataset", "Periapical Lesions"), # For local testing
+        # == DENTEX Dataset
+        # 'path': os.path.join(os.getcwd(), "data", "DENTEX", "DENTEX"), # For local testing
+        # 'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DENTEX", "DENTEX")),  # For Docker testing
         'create_yolo_version': False,
         'create_rf_detr_version': False,
         'enhance_images': False,
     }
 
     model_configs = {
+        'model_path': 'RFDETR',
+        'model_version': 'base',  # 'base' or 'large'
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         'imgsz': 1344,
-        'epochs': 50,
+        'epochs': 250,
         'batch_size': 4,
         'grad_accum_steps': 4,
         'lr': 1e-4,
         'lr_encoder': 1e-5,
-        'weight_decay': 5e-4,
+        'weight_decay': 1e-4,
+        'warmup_epochs': 0,
         'use_ema': True,
         'gradient_checkpointing': True,
         'checkpoint_interval': 5,
         'early_stopping': True,
         'early_stopping_patience': 10,
-        'early_stopping_min_delta': 0.01,
+        'early_stopping_min_delta': 0.001,
         'early_stopping_use_ema': True,
         'resume': False,
     }
 
     # Run checks
-    run_checks(model_version="RFDETR", size_version="base", dataset_configs=dataset_configs)
+    run_checks(model_version="RFDETR", size_version=model_configs['model_version'], dataset_configs=dataset_configs)
 
     # Get the dataset
     dataset_configs['data'] = get_dataset(dataset_configs)

@@ -38,7 +38,12 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     momentum = model_configs["momentum"]
     weight_decay = model_configs["weight_decay"]
     patience = model_configs["patience"]
-
+    dropout = model_configs["dropout"]
+    mask_ratio = model_configs["mask_ratio"]
+    overlap_mask = model_configs["overlap_mask"]
+    warmup_epochs = model_configs["warmup_epochs"]
+    cache = model_configs["cache"]
+    
     # Augmentations
     augmentations = {
         "hsv_h": model_configs["hsv_h"],
@@ -97,7 +102,11 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         #     val=dict(os.path.join(data_path, "YOLO_dataset", "data.yaml")),
         # )
     else:
-        model = YOLO(model_path)
+        if yolo_version == "12-turbo" or yolo_version == "12":
+            # Load YOLOv12-turbo model
+            model = YOLO(f"yolov12{model_version}-seg.yaml").load(f"yolo12{model_version}-seg.pt") # --> Requires YOLOv12-turbo and yolov12-seg.yaml in the configs folder
+        else:
+            model = YOLO(model_path)
         trainer = model.trainer
         freeze = None
         data = os.path.join(data_path, "YOLO_dataset", "data.yaml")
@@ -108,16 +117,18 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
             "device": device, "imgsz": imgsz, "epochs": epochs, "batch": batch, "optimizer": optimizer,
             "lr0": lr0, "lrf": lrf, "cos_lr": cos_lr, "close_mosaic": close_mosaic,
             "momentum": momentum, "weight_decay": weight_decay, "patience": patience, "augmentations": augmentations, "enhance": enhance,
+            "mask_ratio": mask_ratio, "overlap_mask": overlap_mask, "dropout": dropout, "warmup_epochs": warmup_epochs, "cache": cache,
             "resume": resume, "save_dir": save_dir, "model_path": model_path
         })
 
     # Train the model
     results = model.train(data=data,
         # Trainer-related
-        trainer=trainer, freeze=freeze,
+        trainer=trainer, freeze=freeze, cache=cache, warmup_epochs=warmup_epochs,
         # Network-related
         device=device, imgsz=imgsz, epochs=epochs, batch=batch, optimizer=optimizer, lr0=lr0, lrf=lrf,
         cos_lr=cos_lr, momentum=momentum, weight_decay=weight_decay, patience=patience,
+        dropout=dropout, mask_ratio=mask_ratio, overlap_mask=overlap_mask, 
         # Augmentations
         hsv_h=augmentations["hsv_h"], hsv_s=augmentations["hsv_s"], hsv_v=augmentations["hsv_v"],
         degrees=augmentations["degrees"], fliplr=augmentations["fliplr"], close_mosaic=close_mosaic,
@@ -158,9 +169,10 @@ def main():
     }
 
     model_configs = {
-        'yolo_version': "8",      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
+        'yolo_version': "8",      # Choose between [8, 9, 10, 11, 12, 12-turbo]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
         'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
+        'cache': True, # Cache images for faster training
         # Network-related
         'imgsz': 1280,
         'epochs': 80,
@@ -173,6 +185,10 @@ def main():
         'momentum': 0.937,
         'weight_decay': 5e-4,
         'patience': 20,
+        'dropout': 0.0, # Dropout rate (0.0 = no dropout) | Default: 0.1
+        'warmup_epochs': 0, # Warmup epochs (0 = no warmup) | Default: 3
+        'mask_ratio': 4,
+        'overlap_mask': True,
         # Augmentations
         'hsv_h': 0.0,           # Image HSV-Hue augmentation (fraction)
         'hsv_s': 0.0,           # Image HSV-Saturation augmentation (fraction)
@@ -180,7 +196,7 @@ def main():
         'degrees': 0.0,         # Image rotation (+/- deg)
         'fliplr': 0.0,          # Horizontal flip probability
         # Resume option
-        'resume': False,       # Resume training from the last checkpoint (last.pt)
+        'resume': False,        # Resume training from the last checkpoint (last.pt)
     }
 
     # Get the dataset

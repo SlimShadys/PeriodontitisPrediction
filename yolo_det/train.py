@@ -24,6 +24,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     yolo_version = model_configs["yolo_version"]
     model_version = model_configs["model_version"]
     device = model_configs["device"]
+    cache = model_configs["cache"]
 
     # Network-related
     imgsz = model_configs["imgsz"]
@@ -37,6 +38,8 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     momentum = model_configs["momentum"]
     weight_decay = model_configs["weight_decay"]
     patience = model_configs["patience"]
+    dropout = model_configs["dropout"]
+    warmup_epochs = model_configs["warmup_epochs"]
 
     # Augmentations
     augmentations = {
@@ -70,21 +73,21 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         model = YOLOE(model_path)
     else:
         model = YOLO(model_path)
-
     # Update the WandB configs before training
     if wandb_run is not None:
         wandb_run.config.update({"yolo_version": yolo_version, "model_version": model_version, "dataset_name": dataset_name,
             "device": device, "imgsz": imgsz, "epochs": epochs, "batch": batch, "optimizer": optimizer,
             "lr0": lr0, "lrf": lrf, "cos_lr": cos_lr, "close_mosaic": close_mosaic,
             "momentum": momentum, "weight_decay": weight_decay, "patience": patience, "augmentations": augmentations, "enhance": enhance,
-            "resume": resume, "save_dir": save_dir, "model_path": model_path
+            "resume": resume, "save_dir": save_dir, "model_path": model_path,
+            "dropout": dropout, "warmup_epochs": warmup_epochs, "cache": cache,
         })
 
     # Train the model
-    results = model.train(data=os.path.join(data_path, "YOLO_dataset", "data.yaml"),
+    results = model.train(data=os.path.join(data_path, "YOLO_dataset", "data.yaml"), cache=cache,
         # Network-related
         device=device, imgsz=imgsz, epochs=epochs, batch=batch, optimizer=optimizer, lr0=lr0, lrf=lrf,
-        cos_lr=cos_lr, momentum=momentum, weight_decay=weight_decay, patience=patience,
+        cos_lr=cos_lr, momentum=momentum, weight_decay=weight_decay, patience=patience, dropout=dropout, warmup_epochs=warmup_epochs,
         # Augmentations
         hsv_h=augmentations["hsv_h"], hsv_s=augmentations["hsv_s"], hsv_v=augmentations["hsv_v"],
         degrees=augmentations["degrees"], fliplr=augmentations["fliplr"], close_mosaic=close_mosaic,
@@ -103,10 +106,10 @@ def main():
         wandb.login()
         entity = "SlimShadys"           # Set the wandb entity where your project will be logged (generally your team name).
         project = "FIS2-YOLODetection"  # Set the wandb project where this run will be logged.
-        group = "v2.1"                  # Set the group name of the run, this is useful when comparing multiple runs in a project.
+        group = "v2.3"                  # Set the group name of the run, this is useful when comparing multiple runs in a project.
         wandb_id = "d3fafg8d"           # Set the run ID if you want to resume a run
     else:
-        version = "v2.1"                # Set the version of the run (saved locally ONLY)
+        version = "v2.3"                # Set the version of the run (saved locally ONLY)
 
     dataset_configs = {
         'name': 'Periapical', # Name of the dataset ('Periapical', 'DENTEX', etc.)
@@ -117,7 +120,8 @@ def main():
         # == DENTEX Dataset
         # 'path': os.path.join(os.getcwd(), "data", "DENTEX", "DENTEX"), # For local testing
         # 'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DENTEX", "DENTEX")),  # For Docker testing
-        'create_yolo_version': False,
+        'create_yolo_version': False, # Create a YOLO version of the dataset
+        'create_rf_detr_version': False,  # Create a RF-Detr version of the dataset
         'enhance_images': False, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
     }
 
@@ -125,6 +129,7 @@ def main():
         'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
         'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
+        'cache': True,          # Cache images for faster training
         # Network-related
         'imgsz': 1280,
         'epochs': 80,
@@ -137,6 +142,8 @@ def main():
         'momentum': 0.937,
         'weight_decay': 5e-4,
         'patience': 20,
+        'dropout': 0.0, # Dropout rate (0.0 = no dropout) | Default: 0.1
+        'warmup_epochs': 0, # Warmup epochs (0 = no warmup) | Default: 3
         # Augmentations
         'hsv_h': 0.0,           # Image HSV-Hue augmentation (fraction)
         'hsv_s': 0.0,           # Image HSV-Saturation augmentation (fraction)
