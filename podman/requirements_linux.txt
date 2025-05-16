@@ -1,4 +1,4 @@
-albumentations==2.0.4
+albumentations==2.0.6
 annotated-types==0.7.0
 anyio==4.9.0
 appdirs==1.4.4

@@ -1,32 +1,32 @@
 import random
 from typing import Optional
 
+import albumentations as A
 import cv2
-import numpy as np
 import torch
 import torchvision.transforms as transforms
 
+# Define the transformation pipeline
+transform = A.Compose([
+    A.Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=1.0),
+    A.CLAHE(clip_limit=(1, 4), tile_grid_size=(8, 8), p=1.0),
+    A.GaussianBlur(blur_limit=(3, 7), sigma_limit=(0.5, 3.0), p=1.0)
+])
+
 def preprocess_image(image_path):
+    
     # Load the grayscale image
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
-    # Image Sharpening
-    sharpening_kernel = np.array([[0, -1, 0], 
-                                  [-1, 5, -1], 
-                                  [0, -1, 0]])
-    sharpened = cv2.filter2D(img, -1, sharpening_kernel)
+    # Apply the transformations
+    augmented = transform(image=img)
+    augmented_image = augmented['image']
+    
+    # # Save both images for testing purposes
+    # cv2.imwrite('original_image.jpg', img)
+    # cv2.imwrite('augmented_image.jpg', augmented_image)
 
-    # Contrast Adjustment using Histogram Equalization
-    contrast_adjusted = cv2.equalizeHist(sharpened)
-
-    # Gaussian Filtering (3x3 kernel)
-    smoothed = cv2.GaussianBlur(contrast_adjusted, (3, 3), 0)
-
-    # Plot the images for comparison
-    # cv2.imshow('Original', img_display)
-    # cv2.imshow('Sharpened', smoothed)
-
-    return smoothed
+    return augmented_image
 
 class ColorAugmentation(object):
     """
