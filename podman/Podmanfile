@@ -7,27 +7,35 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsm6 \
     libxext6 \
-    screen
+    screen \
+    tmux
 
-COPY requirements_linux.txt /
-
+# ====== ENVIRONMENT VARIABLES ======
 # Silence pip warning about using pip as root
 ENV PIP_ROOT_USER_ACTION=ignore
-
-# Upgrade pip before installing dependencies
-RUN pip install --upgrade pip
-
-# Install Python dependencies
-RUN pip install -r /requirements_linux.txt
-
-# Cache directory creation
-RUN mkdir /.cache && chmod 777 /.cache
-
-# Here we should enable WandB with: yolo settings wandb=True at '/root/.config/Ultralytics/settings.json'
-RUN yolo settings wandb=True
 
 # Set the environment variable for matplotlib (for storing local cache files)
 ENV MPLCONFIGDIR=/tmp/matplotlib
 
-# Run a bash shell by default
+# Set default YOLO config dir
+ENV YOLO_CONFIG_DIR=/root/.config/Ultralytics
+
+# Set Python to output directly to stdout/stderr (no buffering)
+ENV PYTHONUNBUFFERED=1
+
+# ============== MISC ==============
+# Make sure YOLO dir is writeable
+RUN mkdir -p $YOLO_CONFIG_DIR && chmod -R 777 $YOLO_CONFIG_DIR
+
+# =============== PIP ===============
+# Copy and install requirements
+COPY requirements_linux.txt /
+RUN pip install --upgrade pip
+RUN pip install -r /requirements_linux.txt
+
+# ========= FINAL TOUCHUPS ==========
+# Preconfigure WandB settings at '/root/.config/Ultralytics/settings.json'
+RUN yolo settings wandb=True
+
+# Default command is infinite sleep to keep container alive
 CMD ["sleep", "infinity"]

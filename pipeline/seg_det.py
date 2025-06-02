@@ -13,13 +13,6 @@ from supervision.utils.conversion import pillow_to_cv2
 from tqdm import tqdm
 from ultralytics import YOLO
 
-# --- PAI Mapping ---
-PAI_mapping = {
-    0: "PAI 3",
-    1: "PAI 4",
-    2: "PAI 5",
-}
-
 # --- Color and Tooth Mapping ---
 def generate_tooth_colors(n_classes=33):
     base_colors = [*plt.cm.tab20.colors, *plt.cm.tab20b.colors, *plt.cm.Set3.colors, *plt.cm.Pastel1.colors]
@@ -46,22 +39,32 @@ def compute_iou(box1, box2):
     union = area1 + area2 - inter
     return inter / union if union else 0
 
-# --- Configurations ---
+# --- PAI Mapping ---
+PAI_mapping = {
+    0: "PAI 3",
+    1: "PAI 4",
+    2: "PAI 5",
+}
+
+# ----------------- Configurations -----------------
 USE_YOLO_DETECTOR = True # Set to True to use YOLO for detection, else use RF-DETR
-SEG_MODEL_PATH = os.path.join(os.getcwd(), "yolo_seg", "best-dulcet-wildflower-40.pt")
+SEG_MODEL_PATH = os.path.join(os.getcwd(), "yolo_seg", "best-glad-sound-59.pt")
 DET_MODEL_PATH = os.path.join(os.getcwd(), "yolo_det", "best-lively-durian-49.pt") if USE_YOLO_DETECTOR else os.path.join(os.getcwd(), "rf_detr", "checkpoint_best_ema_drawn-wind-91.pth")
 SEG_CONF = 0.50 # Confidence threshold for segmentation
 DET_CONF = 0.25 # Confidence threshold for detection
 YOLO_IMG_SZ = 1280 # Image size for inference with YOLO
 DEVICE = "cuda" # Device to use for inference (e.g., "cuda" or "cpu")
 AREA_OVERLAP_THRESHOLD = 0.05  # how much of the tooth‐mask must be covered to call it "affected"? e.g. 5% of the mask area
+DATA_DIR = os.path.join(os.getcwd(), "data", "InferenceData")
+FINAL_DATA_DIR = os.path.join(DATA_DIR, "final")
 
 # Load models
 yolo_seg = YOLO(SEG_MODEL_PATH)
 obj_detector = YOLO(DET_MODEL_PATH) if USE_YOLO_DETECTOR else RFDETRBase(pretrain_weights=DET_MODEL_PATH, num_classes=2)
 
-DATA_DIR = os.path.join(os.getcwd(), "data", "InferenceData")
-FINAL_DATA_DIR = os.path.join(DATA_DIR, "final")
+# --------------------------------------------------
+
+# Ensure the final data directory exists
 if not os.path.exists(FINAL_DATA_DIR):
     os.makedirs(FINAL_DATA_DIR)
     

@@ -7,7 +7,7 @@ from shapely.geometry import Polygon  # For centroid calculation
 from ultralytics import YOLO
 
 # --- Configuration ---
-MODEL_PATH = os.path.join(os.getcwd(), "yolo_seg", "best-dulcet-wildflower-40.pt")
+MODEL_PATH = os.path.join(os.getcwd(), "yolo_seg", "best-glad-sound-59.pt")
 CONF_THRESHOLD_PRED = 0.50 # Initial confidence threshold for YOLO prediction
 IMAGE_SIZE = 1280 # Image size for YOLO model
 DEVICE = "cuda" # or "cpu"
@@ -19,7 +19,7 @@ TTA_ANGLES = [0, 15, -15, 30, -30] # Rotation angles for TTA (15deg steps)
 IOU_THRESHOLD = 0.75 # IoU threshold for matching masks
 # ========================
 
-IMAGE_PATH = os.path.join(os.getcwd(), "data", "InferenceData", "inference_2.jpg")
+IMAGE_PATH = os.path.join(os.getcwd(), "data", "InferenceData", "01171_7.jpg")
 SAVE_OUTPUT = False # Set to True to save the image, False to display
 
 # --- Color and Class Definitions (from original script) ---

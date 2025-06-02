@@ -227,6 +227,10 @@ class DualLabel():
         val_count = round(splits[1] * total_images)
         train_images = images[:train_count]
         val_images = images[train_count:train_count + val_count]
+        
+        # Get total number of images for TQDM bar
+        total_images = len(train_images) + len(val_images)
+        pbar = tqdm(total=total_images, desc="Creating splits", unit="file")
 
         print("Image Dataset statistics:")
         print("/-------------------------------\\")
@@ -244,15 +248,14 @@ class DualLabel():
             for img in split_images:
                 with open(os.path.join(split_dir, img.replace(".png", ".txt")), 'w') as f:
                     f.write("\n".join(yolo_data[img]))
-                    
-                # Copy the image file
-                # == Before copying, we need to preprocess the image
-                
+
                 # Get image paths from the mapping
                 folder_path = self.img_mapping.get(img, None)
                 if folder_path is None:
                     raise FileNotFoundError(f"Image {img} not found in the mapping.")
                 
+                # Copy the image file
+                # == Before copying, we need to preprocess the image if requested ==
                 image_path = os.path.join(folder_path, img)
                 dest_path = os.path.join(split_dir, img)
                 
@@ -262,11 +265,16 @@ class DualLabel():
                     # Preprocess the image with Sharpening, Contrast Adjustment using Histogram Equalization and Gaussian Filtering
                     if self.enhance_images:
                         augmented_image = preprocess_image(image_path)
-                        cv2.imwrite(dest_path, augmented_image)
+                        cv2.imwrite(dest_path, augmented_image, [cv2.IMWRITE_PNG_COMPRESSION, 0])
                     else:
                         # Copy the image without enhancement
                         shutil.copy(image_path, dest_path)
-
+                        
+                pbar.update(1)
+        
+        # Close the progress bar
+        pbar.close()
+        
         # Copy background images to the train split
         for img in yolo_data_background.keys():
             # Get image paths from the mapping

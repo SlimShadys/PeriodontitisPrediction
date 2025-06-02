@@ -270,3 +270,25 @@ def load_model(model_path: str,
     start_epoch = checkpoint['epoch'] + 1
     print(f"Correctly loaded the model, optimizer, and scheduler from: {model_path}")
     return model, optimizer, scheduler_warmup, start_epoch
+
+def print_cool_ascii():
+    ascii_art = r"""
+                   .     _,                 ~+
+                   |`\__/ /
+                   \  . .(                 *       +
+                    | __T|           '                  |
+                   /   |       ()    .-.,="``"=.    - o -
+      _.---======='    |             '=/_       \     |
+     //               {}          *   |  '=._    |
+    `|      ,   ,     {}               \     `=./`,        '
+     \      /___;    ,'            .    '=.__.=' `='      *
+      ) ,-;`    `\  //   +                         +
+     | / (        ;||        O      *        '       .
+     ||`\\        |||
+     ||  \\       |||
+     )\   )\      )||
+     `"   `"      `""
+    """
+    
+    # Print the ASCII art
+    print(ascii_art)

@@ -10,7 +10,7 @@ from ultralytics.models.yolo.yoloe import YOLOEVPTrainer
 
 # Local imports
 sys.path.append("./")
-from misc.utils import run_checks, get_dataset, get_model_path
+from misc.utils import run_checks, get_dataset, get_model_path, print_cool_ascii
 
 def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wandb_run.Run]) -> None:
     """
@@ -258,3 +258,7 @@ if __name__ == '__main__':
         print(f"Successfully set CUDA device with ID: {torch.cuda.current_device()}")
     
     main()
+
+    # Print some cool stuff
+    print("\n\nTraining completed successfully! 🎉")
+    print_cool_ascii()

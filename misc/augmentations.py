@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 transform = A.Compose([
     A.Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=1.0),
     A.CLAHE(clip_limit=(1, 4), tile_grid_size=(8, 8), p=1.0),
-    A.GaussianBlur(blur_limit=(3, 7), sigma_limit=(0.5, 3.0), p=1.0)
+    A.GaussianBlur(blur_limit=(2, 4), sigma_limit=(0.5, 3.0), p=1.0)
 ])
 
 def preprocess_image(image_path):
