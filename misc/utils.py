@@ -55,6 +55,10 @@ def run_checks(model_version, size_version, dataset_configs=None):
             "sizes": ["n", "s", "m", "l", "x"],
             "suffixes": ["", "-seg"]  # Updates on new models: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/downloads.py#L20
         },
+        "yolo12-custom": {
+            "sizes": ["n", "s", "m", "l", "x"],
+            "suffixes": ["", "-seg"]  # Updates on new models:
+        },
         "yoloe-v8": {
             "sizes": ["s", "m", "l"],
             "suffixes": ["-seg", "-seg-pf"]
@@ -77,6 +81,8 @@ def run_checks(model_version, size_version, dataset_configs=None):
         model_family = f"yolov{model_version}"
     elif model_version == "11" or model_version == "12" or model_version == "12-turbo":
         model_family = f"yolo{model_version}"
+    elif model_version == "12-custom":
+        model_family = "yolo12-custom"
     elif model_version in ["yoloe-v8", "yoloe-11"]:
         model_family = model_version
     elif model_version == "RFDETR":
@@ -182,6 +188,8 @@ def get_model_path(resume, save_dir, model_version, size_version, task_type="-se
                 model_name = f"yolov12{size_version}{task_type}.yaml" # --> Requires yolov12-turbo and yolov12.yaml in the configs folder
             else:
                 model_name = f"yolo{model_version}{size_version}{task_type}.pt"
+        elif model_version == "12-custom":
+            model_name = f"yolov12-custom{size_version}{task_type}.yaml"  # --> Requires yolov12-turbo and yolov12-custom.yaml in the configs folder
         elif model_version == "yoloe-v8":
             model_name = f"yoloe-v8{size_version}{task_type}.pt"
         elif model_version == "yoloe-11":
