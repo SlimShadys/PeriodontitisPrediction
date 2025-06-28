@@ -5,7 +5,7 @@ from typing import Dict, Optional
 import torch
 import wandb
 import wandb.wandb_run
-from ultralytics import YOLO, YOLOE
+from ultralytics import YOLO
 
 # Local imports
 sys.path.append("./")
@@ -67,12 +67,12 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     model_path = get_model_path(resume, save_dir, yolo_version, model_version, '')
         
     # Load the YOLO model
-    if model_path.startswith("yoloe"):
-        raise NotImplementedError("YOLOE for Object Detection training is not implemented yet.")
-        # Load YOLOE model
-        model = YOLOE(model_path)
+    if yolo_version == "12-turbo":
+        # Load YOLOv12-turbo model
+        model = YOLO(f"yolov12{model_version}.yaml").load(f"yolo12{model_version}.pt") # --> Requires YOLOv12-turbo and yolov12.yaml in the configs folder
     else:
         model = YOLO(model_path)
+    
     # Update the WandB configs before training
     if wandb_run is not None:
         wandb_run.config.update({"yolo_version": yolo_version, "model_version": model_version, "dataset_name": dataset_name,
@@ -126,7 +126,7 @@ def main():
     }
 
     model_configs = {
-        'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
+        'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12, 12-turbo]
         'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         'cache': True,          # Cache images for faster training

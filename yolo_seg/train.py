@@ -5,8 +5,7 @@ from typing import Dict, Optional
 import torch
 import wandb
 import wandb.wandb_run
-from ultralytics import YOLO, YOLOE
-from ultralytics.models.yolo.yoloe import YOLOEVPTrainer
+from ultralytics import YOLO
 
 # Local imports
 sys.path.append("./")
@@ -71,45 +70,14 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     model_path = get_model_path(resume, save_dir, yolo_version, model_version, '-seg')
         
     # Load the YOLO model
-    if model_path.startswith("yoloe"):
-        raise NotImplementedError("YOLOE for Segmentation training is not implemented yet.")
-        # Load YOLOE model
-        model = YOLOE(model_path)
-        # freeze every layer except of the savpe module.
-        head_index = len(model.model.model) - 1
-        freeze = list(range(0, head_index))
-        for name, child in model.model.model[-1].named_children():
-            if "savpe" not in name:
-                freeze.append(f"{head_index}.{name}")
-        trainer = YOLOEVPTrainer
-        # In this case, Yolo-E expects a dictionary and not a .yaml file
-        # The reason behind this is that we need the grounding_data which is not present in the TeethSeg dataset (for now)
-        data = None
-        # data = dict(
-        #     train=dict(
-        #         yolo_data=[os.path.join(data_path, "YOLO_dataset", "data.yaml")],
-        #         grounding_data=[
-        #             dict(
-        #                 img_path="../datasets/flickr/full_images/",
-        #                 json_file="../datasets/flickr/annotations/final_flickr_separateGT_train_segm.json",
-        #             ),
-        #             # dict(
-        #             #     img_path="../datasets/mixed_grounding/gqa/images",
-        #             #     json_file="../datasets/mixed_grounding/annotations/final_mixed_train_no_coco_segm.json",
-        #             # ),
-        #         ],
-        #     ),
-        #     val=dict(os.path.join(data_path, "YOLO_dataset", "data.yaml")),
-        # )
+    if yolo_version == "12-turbo":
+        # Load YOLOv12-turbo model
+        model = YOLO(f"yolov12{model_version}-seg.yaml").load(f"yolo12{model_version}-seg.pt") # --> Requires YOLOv12-turbo and yolov12-seg.yaml in the configs folder
     else:
-        if yolo_version == "12-turbo" or yolo_version == "12":
-            # Load YOLOv12-turbo model
-            model = YOLO(f"yolov12{model_version}-seg.yaml").load(f"yolo12{model_version}-seg.pt") # --> Requires YOLOv12-turbo and yolov12-seg.yaml in the configs folder
-        else:
-            model = YOLO(model_path)
-        trainer = model.trainer
-        freeze = None
-        data = os.path.join(data_path, "YOLO_dataset", "data.yaml")
+        model = YOLO(model_path)
+    trainer = model.trainer
+    freeze = None
+    data = os.path.join(data_path, "YOLO_dataset", "data.yaml")
 
     # Update the WandB configs before training
     if wandb_run is not None:
@@ -169,7 +137,7 @@ def main():
     }
 
     model_configs = {
-        'yolo_version': "8",      # Choose between [8, 9, 10, 11, 12, 12-turbo]. SPECIAL VERSIONS: [yoloe-v8, yoloe-11]
+        'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12, 12-turbo]
         'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         'cache': True, # Cache images for faster training

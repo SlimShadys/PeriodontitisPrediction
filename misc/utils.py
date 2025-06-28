@@ -13,7 +13,7 @@ def run_checks(model_version, size_version, dataset_configs=None):
     Validate YOLO model configuration based on version, model size, and task type.
     
     Args:
-        model_version: int or str - The YOLO version (3, 5, 8, 9, 10, 11, 12, etc.)
+        model_version: int or str - The YOLO version (3, 5, 8, 9, 10, 11, 12, 12-turbo, etc.)
         size_version: str - Model size/variant (n, s, m, l, x, t, c, e, b)
         dataset_configs: dict - Dataset configurations
     
@@ -49,23 +49,11 @@ def run_checks(model_version, size_version, dataset_configs=None):
         },
         "yolo12": {
             "sizes": ["n", "s", "m", "l", "x"],
-            "suffixes": ["", "-seg"]  # Updates on new models: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/downloads.py#L20
+            "suffixes": ["",]  # Updates on new models: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/downloads.py#L21
         },
-        "yolo12-turbo": {
+        "yolov12-turbo": {
             "sizes": ["n", "s", "m", "l", "x"],
-            "suffixes": ["", "-seg"]  # Updates on new models: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/downloads.py#L20
-        },
-        "yolo12-custom": {
-            "sizes": ["n", "s", "m", "l", "x"],
-            "suffixes": ["", "-seg"]  # Updates on new models:
-        },
-        "yoloe-v8": {
-            "sizes": ["s", "m", "l"],
-            "suffixes": ["-seg", "-seg-pf"]
-        },
-        "yoloe-11": {
-            "sizes": ["s", "m", "l"],
-            "suffixes": ["-seg", "-seg-pf"]
+            "suffixes": ["", "-seg"]  # https://github.com/SlimShadys/yolov12/
         },
         "rfdetr": {
             "sizes": ["base", "large"],
@@ -77,14 +65,10 @@ def run_checks(model_version, size_version, dataset_configs=None):
     if isinstance(model_version, int):
         model_version = str(model_version)
         
-    if model_version == "8" or model_version == "9" or model_version == "10":
+    if model_version == "8" or model_version == "9" or model_version == "10" or model_version == "12-turbo":
         model_family = f"yolov{model_version}"
-    elif model_version == "11" or model_version == "12" or model_version == "12-turbo":
+    elif model_version == "11" or model_version == "12":
         model_family = f"yolo{model_version}"
-    elif model_version == "12-custom":
-        model_family = "yolo12-custom"
-    elif model_version in ["yoloe-v8", "yoloe-11"]:
-        model_family = model_version
     elif model_version == "RFDETR":
         model_family = "rfdetr"
     else:
@@ -182,18 +166,10 @@ def get_model_path(resume, save_dir, model_version, size_version, task_type="-se
         # Construct model name based on version convention
         if model_version in ["8", "9", "10"]:
             model_name = f"yolov{model_version}{size_version}{task_type}.pt"
-        elif model_version in ["11", "12", "12-turbo"]:
-            # Special handling for 12-turbo
-            if model_version == "12-turbo":
-                model_name = f"yolov12{size_version}{task_type}.yaml" # --> Requires yolov12-turbo and yolov12.yaml in the configs folder
-            else:
-                model_name = f"yolo{model_version}{size_version}{task_type}.pt"
-        elif model_version == "12-custom":
-            model_name = f"yolov12-custom{size_version}{task_type}.yaml"  # --> Requires yolov12-turbo and yolov12-custom.yaml in the configs folder
-        elif model_version == "yoloe-v8":
-            model_name = f"yoloe-v8{size_version}{task_type}.pt"
-        elif model_version == "yoloe-11":
-            model_name = f"yoloe-11{size_version}{task_type}.pt"
+        elif model_version in ["11", "12"]:
+            model_name = f"yolo{model_version}{size_version}{task_type}.pt"
+        elif model_version == "12-turbo":
+            model_name = f"yolov12{size_version}{task_type}.yaml" # --> Requires yolov12-turbo and yolov12.yaml in the configs folder
         else:
             raise ValueError(f"Unsupported YOLO version: {model_version}")
             
