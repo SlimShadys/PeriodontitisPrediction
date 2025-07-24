@@ -72,7 +72,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     # Load the YOLO model
     if yolo_version == "12-turbo":
         # Load YOLOv12-turbo model
-        model = YOLO(f"yolov12{model_version}-seg.yaml").load(f"yolo12{model_version}-seg.pt") # --> Requires YOLOv12-turbo and yolov12-seg.yaml in the configs folder
+        model = YOLO(f"yolov12{model_version}-seg.yaml").load(f"yolov12{model_version}-seg.pt") # --> Requires YOLOv12-turbo and yolov12-seg.yaml in the configs folder
     else:
         model = YOLO(model_path)
     trainer = model.trainer
@@ -129,32 +129,32 @@ def main():
         #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")), # For Docker testing
         # ==== DualLabel Dataset
         'name': 'DualLabel',
-        'path': os.path.join(os.getcwd(), "data", "DualLabel"), # For local testing
-        #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DualLabel")), # For Docker testing
+        # 'path': os.path.join(os.getcwd(), "data", "DualLabel"), # For local testing
+        'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DualLabel")), # For Docker testing
         # ==================== #
         'create_yolo_version': True, # Create the YOLO version of the dataset
         'enhance_images': False, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
     }
 
     model_configs = {
-        'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12, 12-turbo]
+        'yolo_version': "12-turbo",      # Choose between [8, 9, 10, 11, 12, 12-turbo]
         'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         'cache': True, # Cache images for faster training
         # Network-related
         'imgsz': 1280,
-        'epochs': 80,
-        'batch': 4,
+        'epochs': 300,
+        'batch': 8,
         'optimizer': 'auto',  # Choose between [SGD, Adam, AdamW, RMSProp, auto]
-        'lr0': 1e-2,
+        'lr0': 1e-3,
         'lrf': 1e-2,
         'cos_lr': False,
         'close_mosaic': 10,
         'momentum': 0.937,
         'weight_decay': 5e-4,
-        'patience': 20,
-        'dropout': 0.0, # Dropout rate (0.0 = no dropout) | Default: 0.1
-        'warmup_epochs': 0, # Warmup epochs (0 = no warmup) | Default: 3
+        'patience': 30,
+        'dropout': 0.1, # Dropout rate (0.0 = no dropout) | Default: 0.1
+        'warmup_epochs': 3, # Warmup epochs (0 = no warmup) | Default: 3
         'mask_ratio': 4,
         'overlap_mask': True,
         # Augmentations

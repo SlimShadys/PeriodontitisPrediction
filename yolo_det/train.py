@@ -69,7 +69,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
     # Load the YOLO model
     if yolo_version == "12-turbo":
         # Load YOLOv12-turbo model
-        model = YOLO(f"yolov12{model_version}.yaml").load(f"yolo12{model_version}.pt") # --> Requires YOLOv12-turbo and yolov12.yaml in the configs folder
+        model = YOLO(f"yolov12{model_version}.yaml").load(f"yolov12{model_version}.pt") # --> Requires YOLOv12-turbo and yolov12.yaml in the configs folder
     else:
         model = YOLO(model_path)
     
@@ -115,8 +115,8 @@ def main():
         'name': 'Periapical', # Name of the dataset ('Periapical', 'DENTEX', etc.)
         'task_type': 'detection',
         # == Periapical Dataset
-        # 'path': os.path.join(os.getcwd(), "..", "datasets", 'Periapical Dataset', 'Periapical Lesions'), # For Docker testing
-        'path': os.path.join(os.getcwd(), "data", "Periapical Dataset", "Periapical Lesions"), # For local testing
+        'path': os.path.join(os.getcwd(), "..", "datasets", 'Periapical Dataset', 'Periapical Lesions'), # For Docker testing
+        # 'path': os.path.join(os.getcwd(), "data", "Periapical Dataset", "Periapical Lesions"), # For local testing
         # == DENTEX Dataset
         # 'path': os.path.join(os.getcwd(), "data", "DENTEX", "DENTEX"), # For local testing
         # 'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DENTEX", "DENTEX")),  # For Docker testing
@@ -126,24 +126,24 @@ def main():
     }
 
     model_configs = {
-        'yolo_version': 8,      # Choose between [8, 9, 10, 11, 12, 12-turbo]
+        'yolo_version': "12",      # Choose between [8, 9, 10, 11, 12, 12-turbo]
         'model_version': 'm',   # Choose between [n, s, m, l, x, t, c, e, b]
         'device': ','.join(map(str, CUDA_DEVICE)) if isinstance(CUDA_DEVICE, list) else f'cuda:{CUDA_DEVICE}',
         'cache': True,          # Cache images for faster training
         # Network-related
         'imgsz': 1280,
-        'epochs': 80,
-        'batch': 16,
-        'optimizer': 'adamw',  # Choose between [SGD, Adam, AdamW, RMSProp, auto]
-        'lr0': 1e-2,
+        'epochs': 300,
+        'batch': 6,
+        'optimizer': 'auto',  # Choose between [SGD, Adam, AdamW, RMSProp, auto]
+        'lr0': 1e-3,
         'lrf': 1e-2,
         'cos_lr': False,
         'close_mosaic': 10,
         'momentum': 0.937,
         'weight_decay': 5e-4,
-        'patience': 20,
+        'patience': 30,
         'dropout': 0.0, # Dropout rate (0.0 = no dropout) | Default: 0.1
-        'warmup_epochs': 0, # Warmup epochs (0 = no warmup) | Default: 3
+        'warmup_epochs': 5, # Warmup epochs (0 = no warmup) | Default: 3
         # Augmentations
         'hsv_h': 0.0,           # Image HSV-Hue augmentation (fraction)
         'hsv_s': 0.0,           # Image HSV-Saturation augmentation (fraction)

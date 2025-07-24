@@ -5,7 +5,7 @@
   <img alt="Detecting PAI 3" src="docs/images/out_2.jpg" width="47%">
 </p>
 
-PeriodontitisPrediction is a comprehensive deep learning toolkit for dental image analysis, providing tools for detection and segmentation of dental structures and periapical lesions, via Periapical Index (PAI), in radiographic images. The suite includes state-of-the-art models for object detection (RF-DETR, YOLO) and segmentation tasks.
+PeriodontitisPrediction is a comprehensive deep learning toolkit for dental image analysis, providing tools for detection and segmentation of dental structures and periapical lesions, via Periapical Index (PAI), in radiographic images. The suite includes state-of-the-art models for object detection and segmentation tasks, such as RF-DETR and YOLO.
 
 ## ✨ Features
 - 📊 **Multi-dataset support**: Works with Periapical, DENTEX, and custom dual-labeled datasets
@@ -25,9 +25,9 @@ First, install [PyTorch](https://pytorch.org/get-started/locally/) with the appr
 pip install torch torchvision torchaudio
 ```
 
-_PyTorch v2.2.2 recommended for proper [FlashAttention](https://github.com/Dao-AILab/flash-attention/releases) support_:
+_PyTorch v2.4.1 recommended for proper [FlashAttention](https://github.com/Dao-AILab/flash-attention/releases) support_:
 ```bash
-pip install torch==2.2.2 torchvision==0.15.2 torchaudio==2.2.2
+pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
 ```
 
 Then install the required dependencies based on your environment (Linux or Windows):
@@ -58,6 +58,7 @@ pip install -r podman/requirements_*.txt
   <!-- - `relog_logs.py`: Script to re-log WanB logs for YOLO Segmentation models -->
   - `segmentation_example.py`: Example script for YOLO segmentation
   - `train.py`: Training script for segmentation models
+  - `val.py`: Validation script for segmentation models
 
 - **pipeline**: End-to-end pipelines combining detection and segmentation
   - `seg_det.py`: Combined segmentation and detection pipeline
@@ -192,5 +193,5 @@ Special thanks to the following libraries and frameworks that made this project 
 
 ---
 
-🔗 **GitHub Repository**: [https://github.com/SlimShadys/FIS2](https://github.com/SlimShadys/FIS2)  
+🔗 **GitHub Repository**: [https://github.com/SlimShadys/PeriodontitisPrediction](https://github.com/SlimShadys/PeriodontitisPrediction)  
 📧 **Contact**: scarano.2047315@studenti.uniroma1.it

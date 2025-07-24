@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cu126
+--extra-index-url https://download.pytorch.org/whl/cu121
 albumentations==2.0.8
 isort==6.0.1
 matplotlib==3.10.3
@@ -12,9 +12,9 @@ rfdetr @ git+https://github.com/roboflow/rf-detr.git@ed54776d02698b8bace3a7cfe99
 roboflow==1.1.66
 scikit-learn==1.7.0
 shapely==2.1.1
-torch==2.7.1+cu126
-torchvision==0.22.1+cu126
-torchaudio==2.7.1
+torch==2.4.1+cu121
+torchvision==0.19.1+cu121
+torchaudio==2.4.1
 tqdm==4.67.1
 ultralytics==8.3.160
 wandb==0.20.1
