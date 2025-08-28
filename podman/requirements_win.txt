@@ -16,5 +16,5 @@ torch==2.4.1+cu121
 torchvision==0.19.1+cu121
 torchaudio==2.4.1
 tqdm==4.67.1
-ultralytics==8.3.160
-wandb==0.20.1
+ultralytics==8.3.187
+wandb==0.21.1

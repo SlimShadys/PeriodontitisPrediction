@@ -1,11 +1,11 @@
-# PeriodontitisPrediction: Dental Image Analysis Tools 🦷
+# YoLeTooth: Framework for Tooth Segmentation and Periapical Lesion Detection on OPTs 🦷
 <p align="center">
   <img alt="Detecting PAI 4" src="docs/images/out_1.jpg" width="47%">
 &nbsp; &nbsp; &nbsp; &nbsp;
   <img alt="Detecting PAI 3" src="docs/images/out_2.jpg" width="47%">
 </p>
 
-PeriodontitisPrediction is a comprehensive deep learning toolkit for dental image analysis, providing tools for detection and segmentation of dental structures and periapical lesions, via Periapical Index (PAI), in radiographic images. The suite includes state-of-the-art models for object detection and segmentation tasks, such as RF-DETR and YOLO.
+YoLeTooth is a comprehensive deep learning toolkit for dental image analysis, providing tools for detection and segmentation of dental structures and periapical lesions, via Periapical Index (PAI), in radiographic images. The suite includes state-of-the-art models for object detection and segmentation tasks, such as RF-DETR and YOLO.
 
 ## ✨ Features
 - 📊 **Multi-dataset support**: Works with Periapical, DENTEX, and custom dual-labeled datasets
@@ -25,7 +25,7 @@ First, install [PyTorch](https://pytorch.org/get-started/locally/) with the appr
 pip install torch torchvision torchaudio
 ```
 
-_PyTorch v2.4.1 recommended for proper [FlashAttention](https://github.com/Dao-AILab/flash-attention/releases) support_:
+_PyTorch v2.4.1 is recommended for proper [FlashAttention](https://github.com/Dao-AILab/flash-attention/releases) support_:
 ```bash
 pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
 ```
@@ -168,6 +168,17 @@ model_configs = {
 }
 ```
 
+##### Important Notes
+If you select <i>YOLOv12</i> as object detector or segmentation model, ensure you install the proper ```ultralytics``` package version from the ```yolov12``` directory:
+```bash
+cd yolov12 && pip install -e .
+```
+
+<!-- Also, if and only if you would like to retrieve Mean Dice Score (<i>mDice</i>) and Mean IoU (<i>mIoU</i>) during validition of the segmentation models, make sure to install the proper ```ultralytics``` package from the same directory:
+```bash
+cd yolov12 && git checkout -b dice_miou && pip install -e .
+``` -->
+
 <!-- ## 📝 Citation
 If you use this toolkit in your research, please cite:
 
@@ -193,5 +204,5 @@ Special thanks to the following libraries and frameworks that made this project 
 
 ---
 
-🔗 **GitHub Repository**: [https://github.com/SlimShadys/PeriodontitisPrediction](https://github.com/SlimShadys/PeriodontitisPrediction)  
+🔗 **GitHub Repository**: [https://github.com/SlimShadys/YoLeTooth](https://github.com/SlimShadys/YoLeTooth)  
 📧 **Contact**: scarano.2047315@studenti.uniroma1.it

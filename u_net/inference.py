@@ -1,5 +1,5 @@
-import importlib
 import argparse
+import importlib
 import json
 import os
 import sys
@@ -8,9 +8,11 @@ from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np
+import segmentation_models_pytorch as smp
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
+import albumentations as A
 
 # Local imports
 sys.path.append("./")
@@ -30,12 +32,26 @@ class UNetInference:
         # Load model checkpoint
         checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
         self.model_configs = checkpoint['model_configs']
-        
+
         # Initialize model
-        self.model = UNet(
-            n_channels=3, 
-            n_classes=self.model_configs['num_classes']
-        ).to(self.device)
+        if self.model_configs['model_type'] == 'unet':
+            self.model = UNet(
+                n_channels=self.model_configs.get('in_channels', 1),
+                n_classes=self.model_configs.get('num_classes', 33),
+                bilinear=self.model_configs.get('bilinear', False),
+                use_se_enc=self.model_configs.get('use_se_enc', True),
+                use_se_dec=self.model_configs.get('use_se_dec', True),
+                use_aspp_block=self.model_configs.get('use_aspp_block', True),
+                use_dropout=self.model_configs.get('use_dropout', False),
+                use_residuals=self.model_configs.get('use_residuals', True)
+            ).to(self.device)
+        else:
+            self.model = smp.UnetPlusPlus(
+                in_channels=self.model_configs.get('in_channels', 1),
+                classes=self.model_configs.get('num_classes', 33),
+                encoder_name="resnet34",
+                decoder_attention_type=None,
+            ).to(self.device)
         
         # Load model weights
         self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -46,7 +62,14 @@ class UNetInference:
         
         # Create color map for visualization
         self.color_map = self._create_color_map()
-        
+
+        self.transform = A.Compose([
+            A.Resize(512, 512),
+            # Match training/validation normalization exactly
+            A.Normalize(mean=[0.5], std=[0.5]),  # or use [0.485] from ImageNet grayscale
+            A.pytorch.ToTensorV2()
+        ])
+    
         print(f"Model loaded successfully!")
         print(f"Number of classes: {self.model_configs['num_classes']}")
         print(f"Model performance - mIoU: {checkpoint.get('val_miou', 'N/A'):.4f}")
@@ -197,19 +220,24 @@ class UNetInference:
         """
         # Load image
         if isinstance(image_path, str):
-            original_image = cv2.imread(image_path)
-            original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
+            original_image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         else:
             original_image = image_path
-            
-        # Resize image
-        resized_image = cv2.resize(original_image, (self.img_size, self.img_size))
+
+        img_aug = self.transform(image=original_image)['image'] # [1, H, W]
         
-        # Convert to tensor and normalize
-        image_tensor = torch.from_numpy(resized_image).float() / 255.0
-        image_tensor = image_tensor.permute(2, 0, 1).unsqueeze(0)  # [1, C, H, W]
+        img_aug = img_aug.unsqueeze(0)  # Add batch dimension: [1, 1, H, W]
+
+        # # Resize image (keep as 2D for grayscale)
+        # resized_image = cv2.resize(original_image, (self.img_size, self.img_size))
         
-        return image_tensor.to(self.device), original_image
+        # # Convert to tensor and normalize
+        # image_tensor = torch.from_numpy(resized_image).float() / 255.0
+        
+        # # Add channel and batch dimensions: [H, W] -> [1, 1, H, W]
+        # image_tensor = image_tensor.unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
+
+        return img_aug.to(self.device), original_image
     
     def postprocess_output(self, output: torch.Tensor, original_shape: Tuple[int, int]) -> np.ndarray:
         """
@@ -265,7 +293,14 @@ class UNetInference:
             Overlaid image
         """
         colored_mask = self.create_colored_mask(mask)
-        overlay = cv2.addWeighted(original_image, alpha, colored_mask, 1 - alpha, 0)
+        
+        # Convert grayscale to 3-channel if needed
+        if len(original_image.shape) == 2:
+            original_image_3ch = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+        else:
+            original_image_3ch = original_image
+            
+        overlay = cv2.addWeighted(original_image_3ch, alpha, colored_mask, 1 - alpha, 0)
         return overlay
     
     def predict_single_image(self, image_path: str, save_results: bool = True, 
@@ -289,7 +324,7 @@ class UNetInference:
             output = self.model(image_tensor)
         
         # Postprocess output
-        mask = self.postprocess_output(output, original_image.shape[:2])
+        mask = self.postprocess_output(output, original_image.shape)
         
         # Create visualizations
         colored_mask = self.create_colored_mask(mask)
@@ -424,18 +459,12 @@ class UNetInference:
 
 def main():
     parser = argparse.ArgumentParser(description='UNet Inference Script')
-    parser.add_argument('--model_path', type=str, default='runs/unet/v0.1/dainty-cosmos-32/best_model.pth', 
-                        help='Path to trained model checkpoint (default: runs/unet/v0.1/dainty-cosmos-32/best_model.pth)')
-    parser.add_argument('--input', type=str, default='data/InferenceData', 
-                        help='Input image path or directory (default: data/InferenceData)')
-    parser.add_argument('--output', type=str, default='data/InferenceData/UNet_results',
-                        help='Output directory for results (default: data/InferenceData/UNet_results)')
-    parser.add_argument('--device', type=str, default='cuda:0',
-                        help='Device to run inference on (default: cuda:0)')
-    parser.add_argument('--batch', action='store_true', default=True,
-                        help='Process directory of images (default: True)')
-    parser.add_argument('--evaluate_map', action='store_true', default=False,
-                        help='Evaluate mAP on validation set (default: False)')
+    parser.add_argument('--model_path', type=str, help='Path to trained model checkpoint (default: u_net/best_model.pth)')
+    parser.add_argument('--input', type=str, default='data/InferenceData', help='Input image path or directory (default: data/InferenceData)')
+    parser.add_argument('--output', type=str, default='data/InferenceData/UNet_results', help='Output directory for results (default: data/InferenceData/UNet_results)')
+    parser.add_argument('--device', type=str, default='cuda:0', help='Device to run inference on (default: cuda:0)')
+    parser.add_argument('--batch', action='store_true', default=True, help='Process directory of images (default: True)')
+    parser.add_argument('--evaluate_map', action='store_true', default=False, help='Evaluate mAP on validation set (default: False)')
     parser.add_argument('--dataset_module', type=str, default='u_net.dataset', help='Module path for dataset (default: u_net.dataset)')
     parser.add_argument('--dataset_class', type=str, default='SegmentationDataset', help='Dataset class name (default: SegmentationDataset)')
     parser.add_argument('--dataset_args', type=str, default=None, help='JSON string of dataset args (e.g. {"data_path": "...", "img_size": 512})')
@@ -443,10 +472,13 @@ def main():
     # Parse arguments    
     args = parser.parse_args()
     
+    if args.model_path is None:
+        args.model_path = 'u_net/best_model_unet++.pth'
+
     # If no arguments are provided (run from VS Code play button), use sensible defaults for mAP on val set
     if args.evaluate_map:
         # You can edit these defaults as needed:
-        default_model_path = 'runs/unet/v0.1/dainty-cosmos-32/best_model.pth'
+        default_model_path = 'u_net/best_model.pth'
         default_dataset_args = {
             'data_path': os.path.join(os.getcwd(), "data", "DualLabel"), # For local testing
             # 'data_path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DualLabel")), # For Docker testing

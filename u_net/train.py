@@ -2,11 +2,14 @@ import os
 import sys
 from typing import Dict, Optional
 
+import segmentation_models_pytorch as smp
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import wandb
 import wandb.wandb_run
+from torch.optim.lr_scheduler import (CosineAnnealingLR, LinearLR,
+                                      SequentialLR, MultiStepLR)
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -17,6 +20,7 @@ from u_net.dataset import SegmentationDataset
 from u_net.losses import CombinedLoss, DiceLoss, FocalLoss
 from u_net.metrics import SegmentationMetrics
 from u_net.model import UNet
+from u_net.model2 import UNet2
 
 class UNetTrainer:
     def __init__(self, model_configs: Dict, dataset_configs: Dict, wandb_run: Optional[wandb.wandb_run.Run]):
@@ -25,13 +29,38 @@ class UNetTrainer:
         self.wandb_run = wandb_run
         self.device = torch.device(model_configs['device'])
         self.ignore_index = 255  # Assuming 255 is the ignore index for segmentation masks
-        
-        # Initialize model
-        self.model = UNet(
-            n_channels=3, 
-            n_classes=model_configs['num_classes'],
-        ).to(self.device)
-        
+
+        if model_configs['model_type'] == 'unet++':
+            self.model = smp.UnetPlusPlus(
+                in_channels=1,
+                classes=model_configs['num_classes'],
+                encoder_name="resnet34",
+                decoder_attention_type=None,
+            ).to(self.device)
+        else:
+            self.model = UNet(
+                n_channels=model_configs['num_channels'],
+                n_classes=model_configs['num_classes'],
+                bilinear=model_configs['bilinear'],
+                use_se_enc=model_configs['use_se_enc'],
+                use_se_dec=model_configs['use_se_dec'],
+                use_aspp_block=model_configs['use_aspp_block'],
+                use_dropout=model_configs['use_dropout'],
+                use_residuals=model_configs['use_residuals'],
+            ).to(self.device)
+
+            # self.model = UNet2(
+            #     n_channels=model_configs['num_channels'],
+            #     n_classes=model_configs['num_classes'],
+            #     bilinear=model_configs['bilinear'],
+            #     use_aspp_block=model_configs['use_aspp_block'],
+            #     use_residuals=model_configs['use_residuals'],
+            # ).to(self.device)
+
+        # Print model statistics
+        print("Successfully initialized model {}.".format(self.model.__class__.__name__))
+        print("Total parameters: {}".format(sum(p.numel() for p in self.model.parameters())))
+
         # Initialize loss function
         if model_configs['loss_type'] == 'combined':
             self.criterion = CombinedLoss(
@@ -73,25 +102,35 @@ class UNetTrainer:
                 weight_decay=model_configs['weight_decay']
             )
         
+        # Initialize warmup
+        if model_configs['use_warmup']:
+            warmup_scheduler = LinearLR(
+                self.optimizer, start_factor=0.1, total_iters=model_configs['warmup_epochs']
+            )
+
         # Initialize scheduler
         if model_configs['scheduler'] == 'cosine':
-            self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            self.lr_schedule = CosineAnnealingLR(
                 self.optimizer, T_max=model_configs['epochs']
             )
-        elif model_configs['scheduler'] == 'step':
-            self.scheduler = optim.lr_scheduler.StepLR(
-                self.optimizer, step_size=30, gamma=0.1
+        elif model_configs['scheduler'] == 'multistep':
+            self.lr_schedule = MultiStepLR(
+                self.optimizer, milestones=model_configs['milestones'], gamma=0.1
             )
         else:
-            self.scheduler = None
+            self.lr_schedule = None
         
+        if model_configs['use_warmup'] and self.lr_schedule:
+            self.scheduler = SequentialLR(self.optimizer, schedulers=[warmup_scheduler, self.lr_schedule], milestones=[model_configs['warmup_epochs']])
+        else:
+            self.scheduler = self.lr_schedule
+
         # Initialize metrics
         self.train_metrics = SegmentationMetrics(model_configs['num_classes'])
         self.val_metrics = SegmentationMetrics(model_configs['num_classes'])
         
         # Best model tracking
-        self.best_val_loss = float('inf')
-        self.best_miou = 0.0
+        self.best_fitness = 0.0
         self.patience_counter = 0
 
     def train_epoch(self, train_loader):
@@ -157,33 +196,20 @@ class UNetTrainer:
             if self.scheduler:
                 self.scheduler.step()
             
+            # Calculate fitness
+            fitness = 0.45 * val_metrics['mIoU'] + 0.45 * val_metrics['mDice'] + 0.10 * (1 - val_loss)
+
             # Print metrics
             print(f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
             print(f"Train mIoU: {train_metrics['mIoU']:.4f}, Val mIoU: {val_metrics['mIoU']:.4f}")
+            print(f"Train mDice: {train_metrics['mDice']:.4f}, Val mDice: {val_metrics['mDice']:.4f}")
+            print(f"Fitness: {fitness:.4f}")
             #print(f"Train mAP50: {train_metrics['mAP50']:.4f}, Val mAP50: {val_metrics['mAP50']:.4f}")
             #print(f"Train mAP50-95: {train_metrics['mAP50-95']:.4f}, Val mAP50-95: {val_metrics['mAP50-95']:.4f}")
-            
-            # Log to wandb
-            if self.wandb_run:
-                self.wandb_run.log({
-                    'epoch': epoch,
-                    'train_loss': train_loss,
-                    'val_loss': val_loss,
-                    'train_mIoU': train_metrics['mIoU'],
-                    'val_mIoU': val_metrics['mIoU'],
-                    'train_mDice': train_metrics['mDice'],
-                    'val_mDice': val_metrics['mDice'],
-                    # 'train_mAP50': train_metrics['mAP50'],
-                    # 'val_mAP50': val_metrics['mAP50'],
-                    # 'train_mAP50-95': train_metrics['mAP50-95'],
-                    # 'val_mAP50-95': val_metrics['mAP50-95'],
-                    'lr': self.optimizer.param_groups[0]['lr']
-                })
-            
+                       
             # Save best model
-            if val_metrics['mIoU'] > self.best_miou:
-                self.best_miou = val_metrics['mIoU']
-                self.best_val_loss = val_loss
+            if fitness > self.best_fitness:
+                self.best_fitness = fitness
                 self.patience_counter = 0
                 
                 # Save model
@@ -196,13 +222,31 @@ class UNetTrainer:
                     'val_miou': val_metrics['mIoU'],
                     'model_configs': self.model_configs
                 }, save_path)
-                print(f"New best model saved with mIoU: {self.best_miou:.4f}")
+                print(f"New best model saved with the following fitness: {self.best_fitness:.4f}")
             else:
                 self.patience_counter += 1
-            
+                
+            # Log to wandb
+            if self.wandb_run:
+                self.wandb_run.log({
+                    'epoch': epoch,
+                    'train_loss': train_loss,
+                    'val_loss': val_loss,
+                    'train_mIoU': train_metrics['mIoU'],
+                    'val_mIoU': val_metrics['mIoU'],
+                    'train_mDice': train_metrics['mDice'],
+                    'val_mDice': val_metrics['mDice'],
+                    'fitness': fitness,
+                    # 'train_mAP50': train_metrics['mAP50'],
+                    # 'val_mAP50': val_metrics['mAP50'],
+                    # 'train_mAP50-95': train_metrics['mAP50-95'],
+                    # 'val_mAP50-95': val_metrics['mAP50-95'],
+                    'lr': self.optimizer.param_groups[0]['lr']
+                })
+       
             # Early stopping
             if self.patience_counter >= self.model_configs['patience']:
-                print(f"Early stopping triggered after {self.patience_counter} epochs without improvement")
+                print(f"Early stopping triggered after {self.patience_counter} epochs without any improvement. :(")
                 break
 
 def train_model(model_configs: Dict, dataset_configs: Dict, wandb_run: Optional[wandb.wandb_run.Run]) -> None:
@@ -212,7 +256,7 @@ def train_model(model_configs: Dict, dataset_configs: Dict, wandb_run: Optional[
     full_dataset = SegmentationDataset(
         data_path=dataset_configs['path'],
         img_size=model_configs['imgsz'],
-        val_size=model_configs['val_size'] if 'val_size' in dataset_configs else 0.2,
+        val_size=dataset_configs['val_size'] if 'val_size' in dataset_configs else 0.2,
     )
 
     # Get train and val splits
@@ -249,7 +293,7 @@ def main():
     # ============== PARAMETERS ============== #
     
     # WandB configs
-    use_wandb = True
+    use_wandb = False
     
     if use_wandb:
         wandb.login()
@@ -265,26 +309,37 @@ def main():
         'name': 'DualLabel',
         'path': os.path.join(os.getcwd(), "data", "DualLabel"), # For local testing
         # 'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DualLabel")), # For Docker testing
+        'val_size': 0.2,
         'create_yolo_version': False,
         'enhance_images': False,
     }
 
     model_configs = {
-        'model_type': 'unet',
-        'num_classes': 33,
+        'model_type': 'unet',   # [unet++, unet]
+        'num_channels': 1,      # Number of input channels (3 for RGB, 1 for Grayscale)
+        'num_classes': 33,      # Number of output classes
+        'bilinear': False,      # Use bilinear upsampling in the Decoder
+        'use_residuals': True,  # Use residual connections for Encoder/Decoder
+        'use_se_enc': False,    # Use Attention Modules in the Encoder
+        'use_se_dec': False,    # Use Attention Modules in the Decoder
+        'use_aspp_block': True, # Use ASPP block for Bottleneck and final Layer
+        'use_dropout': False,   # Use Dropout at final Layer
         'device': f'cuda:{CUDA_DEVICE}' if isinstance(CUDA_DEVICE, int) else ','.join(map(str, CUDA_DEVICE)),
-        
+
         # Training parameters
         'imgsz': 512,
-        'epochs': 100,
-        'batch': 4,
+        'epochs': 200,
+        'batch': 2,
         'workers': 0,
-        'optimizer': 'AdamW',  # [Adam, AdamW, SGD]
-        'lr0': 1e-4,
-        'momentum': 0.937,
-        'weight_decay': 5e-4,
-        'scheduler': 'cosine',  # [cosine, step, none]
-        'patience': 20,
+        'optimizer': 'SGD',  # [Adam, AdamW, SGD]
+        'lr0': 5e-3,
+        'momentum': 0.99,
+        'weight_decay': 1e-4,
+        'scheduler': 'cosine',  # [cosine, multistep, none]
+        'patience': 35,
+        'use_warmup': True,
+        'warmup_epochs': 5,  # Single integer for warmup duration
+        'milestones': [50, 100, 150],  # List for SequentialLR milestones
         
         # Loss configuration
         'loss_type': 'combined',  # [combined, dice, focal, ce]
@@ -346,6 +401,6 @@ if __name__ == '__main__':
         os.environ["CUDA_VISIBLE_DEVICES"] = str(CUDA_DEVICE)
         torch.cuda.set_device(CUDA_DEVICE)
         print(f"Successfully set CUDA device with ID: {torch.cuda.current_device()}")
-    
+
     main()
     print("\n\nUNet training completed successfully! 🎉")

@@ -107,9 +107,9 @@ class SegmentationDataset(Dataset):
     def __getitem__(self, idx):
         # Load image
         img_path = self.image_paths[idx]
-        image = cv2.imread(img_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
+        image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+        image = np.expand_dims(image, axis=-1)  # Add channel dimension 
+                
         # Get original image dimensions
         img_height, img_width = image.shape[:2]
         
@@ -134,20 +134,22 @@ class SegmentationDatasetSplit(Dataset):
         self.augment = augment
         self.transform = None
         
-        # Define augmentations
+        # Define augmentations for grayscale X-ray images
         if self.augment:
             self.transform = A.Compose([
                 A.Resize(base_dataset.img_size, base_dataset.img_size),
                 A.HorizontalFlip(p=0.5),
                 A.RandomRotate90(p=0.5),
                 A.RandomBrightnessContrast(p=0.3),
-                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                # Grayscale normalization (single channel)
+                A.Normalize(mean=[0.5], std=[0.5]),  # or use [0.485] from ImageNet grayscale
                 A.pytorch.ToTensorV2()
             ])
         else:
             self.transform = A.Compose([
                 A.Resize(base_dataset.img_size, base_dataset.img_size),
-                A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                # Grayscale normalization (single channel)
+                A.Normalize(mean=[0.5], std=[0.5]),  # or use [0.485] from ImageNet grayscale
                 A.pytorch.ToTensorV2()
             ])
     

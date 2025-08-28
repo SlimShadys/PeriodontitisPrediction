@@ -75,6 +75,7 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         model = YOLO(f"yolov12{model_version}-seg.yaml").load(f"yolov12{model_version}-seg.pt") # --> Requires YOLOv12-turbo and yolov12-seg.yaml in the configs folder
     else:
         model = YOLO(model_path)
+
     trainer = model.trainer
     freeze = None
     data = os.path.join(data_path, "YOLO_dataset", "data.yaml")
@@ -110,7 +111,7 @@ def main():
     # ============== PARAMETERS ============== #
 
     # WandB configs
-    use_wandb = True                    # Set to True if you want to use WandB for logging | # If True, also run ```yolo settings wandb=True``` in the terminal
+    use_wandb = False                    # Set to True if you want to use WandB for logging | # If True, also run ```yolo settings wandb=True``` in the terminal
     
     if use_wandb:
         wandb.login()
@@ -129,10 +130,10 @@ def main():
         #'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "TeethSeg")), # For Docker testing
         # ==== DualLabel Dataset
         'name': 'DualLabel',
-        # 'path': os.path.join(os.getcwd(), "data", "DualLabel"), # For local testing
-        'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DualLabel")), # For Docker testing
+        'path': os.path.join(os.getcwd(), "data", "DualLabel"), # For local testing
+        # 'path': os.path.abspath(os.path.join(os.getcwd(), "..", "datasets", "DualLabel")), # For Docker testing
         # ==================== #
-        'create_yolo_version': True, # Create the YOLO version of the dataset
+        'create_yolo_version': False, # Create the YOLO version of the dataset
         'enhance_images': False, # Apply image enhancements (sharpening, contrast, gaussian filtering) - Useless if create_yolo_version is False
     }
 
@@ -144,7 +145,7 @@ def main():
         # Network-related
         'imgsz': 1280,
         'epochs': 300,
-        'batch': 8,
+        'batch': 4,
         'optimizer': 'auto',  # Choose between [SGD, Adam, AdamW, RMSProp, auto]
         'lr0': 1e-3,
         'lrf': 1e-2,

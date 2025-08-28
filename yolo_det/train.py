@@ -72,7 +72,11 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         model = YOLO(f"yolov12{model_version}.yaml").load(f"yolov12{model_version}.pt") # --> Requires YOLOv12-turbo and yolov12.yaml in the configs folder
     else:
         model = YOLO(model_path)
-    
+
+    trainer = model.trainer
+    freeze = None
+    data = os.path.join(data_path, "YOLO_dataset", "data.yaml")
+
     # Update the WandB configs before training
     if wandb_run is not None:
         wandb_run.config.update({"yolo_version": yolo_version, "model_version": model_version, "dataset_name": dataset_name,
@@ -84,10 +88,12 @@ def train_model(model_configs: Dict, dataset: Dict, wandb_run: Optional[wandb.wa
         })
 
     # Train the model
-    results = model.train(data=os.path.join(data_path, "YOLO_dataset", "data.yaml"), cache=cache,
+    results = model.train(data=data,
+        # Trainer-related
+        trainer=trainer, freeze=freeze, cache=cache, warmup_epochs=warmup_epochs,
         # Network-related
         device=device, imgsz=imgsz, epochs=epochs, batch=batch, optimizer=optimizer, lr0=lr0, lrf=lrf,
-        cos_lr=cos_lr, momentum=momentum, weight_decay=weight_decay, patience=patience, dropout=dropout, warmup_epochs=warmup_epochs,
+        cos_lr=cos_lr, momentum=momentum, weight_decay=weight_decay, patience=patience, dropout=dropout,
         # Augmentations
         hsv_h=augmentations["hsv_h"], hsv_s=augmentations["hsv_s"], hsv_v=augmentations["hsv_v"],
         degrees=augmentations["degrees"], fliplr=augmentations["fliplr"], close_mosaic=close_mosaic,
